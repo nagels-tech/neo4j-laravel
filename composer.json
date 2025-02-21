@@ -29,16 +29,10 @@
   },
   "scripts": {
     "psalm": "vendor/bin/psalm",
-    "psalm:fix": "vendor/bin/psalm --alter --issues=all",
-    "cs": "vendor/bin/php-cs-fixer fix -v --dry-run",
-    "cs:fix": "vendor/bin/php-cs-fixer fix -v",
-    "analyse": [
-      "@psalm",
-      "@cs"
-    ],
-    "fix": [
-      "@psalm:fix",
-      "@cs:fix"
+    "cs": "vendor/bin/php-cs-fixer fix",
+    "analyze": [
+      "@cs",
+      "@psalm"
     ]
   },
   "extra": {

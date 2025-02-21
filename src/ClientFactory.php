@@ -29,9 +29,10 @@ final class ClientFactory
         private readonly ?StreamFactoryInterface $streamFactory,
         private readonly ?RequestFactoryInterface $requestFactory,
         private readonly ?string $logLevel,
-        private readonly ?LoggerInterface $logger,
+        private readonly ?LoggerInterface $logger
     ) {}
 
+    /** @psalm-suppress PossiblyUnusedMethod */
     public function create(): ClientInterface
     {
         $builder = ClientBuilder::create();
@@ -86,7 +87,7 @@ final class ClientFactory
             : Authenticate::basic($connection['username'], $connection['password']);
     }
 
-    private function createAuthFromConfig(array $config): AuthenticateInterface
+    private function createAuthFromConfig(array $config): \Laudis\Neo4j\Authentication\BasicAuth|\Laudis\Neo4j\Authentication\KerberosAuth|\Laudis\Neo4j\Authentication\OpenIDConnectAuth|\Laudis\Neo4j\Authentication\NoAuth
     {
         return match ($config['scheme']) {
             'basic' => Authenticate::basic($config['username'], $config['password']),
