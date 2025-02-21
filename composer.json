@@ -16,7 +16,9 @@
   },
   "require": {
     "php": "^8.3",
-    "illuminate/support": "^11.0"
+    "illuminate/support": "^11.0",
+    "laudis/neo4j-php-client": "^3.2",
+    "guzzlehttp/guzzle": "^7.9"
   },
   "require-dev": {
     "orchestra/testbench": "^9.0",
@@ -30,5 +32,10 @@
     }
   },
   "minimum-stability": "dev",
-  "prefer-stable": true
+  "prefer-stable": true,
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
+  }
 }

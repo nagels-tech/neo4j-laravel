@@ -1,0 +1,174 @@
+<?php
+
+namespace Neo4jPhp\Neo4jLaravel;
+
+use Laudis\Neo4j\Authentication\Authenticate;
+use Laudis\Neo4j\ClientBuilder;
+use Laudis\Neo4j\Common\Uri;
+use Laudis\Neo4j\Contracts\AuthenticateInterface;
+use Laudis\Neo4j\Contracts\ClientInterface;
+use Laudis\Neo4j\Databags\DriverConfiguration;
+use Laudis\Neo4j\Databags\HttpPsrBindings;
+use Laudis\Neo4j\Databags\SessionConfiguration;
+use Laudis\Neo4j\Databags\SslConfiguration;
+use Laudis\Neo4j\Databags\TransactionConfiguration;
+use Laudis\Neo4j\Enum\SslMode;
+use Psr\Http\Client\ClientInterface as HttpClientInterface;
+use Psr\Http\Message\RequestFactoryInterface;
+use Psr\Http\Message\StreamFactoryInterface;
+use Psr\Log\LoggerInterface;
+
+class ClientFactory
+{
+    public function __construct(
+        private readonly ?array $driverConfig,
+        private readonly ?array $sessionConfiguration,
+        private readonly ?array $transactionConfiguration,
+        private readonly array $connections,
+        private readonly ?string $defaultDriver,
+        private readonly ?HttpClientInterface $client,
+        private readonly ?StreamFactoryInterface $streamFactory,
+        private readonly ?RequestFactoryInterface $requestFactory,
+        private readonly ?string $logLevel,
+        private readonly ?LoggerInterface $logger,
+    ) {}
+
+    public function create(): ClientInterface
+    {
+        $builder = ClientBuilder::create();
+
+        if ($this->client !== null && $this->streamFactory !== null && $this->requestFactory !== null) {
+            $bindings = new HttpPsrBindings($this->client, $this->streamFactory, $this->requestFactory);
+            $builder = $builder->withDefaultDriverConfiguration(
+                DriverConfiguration::default()->withHttpPsrBindings($bindings)
+            );
+        }
+
+        if ($this->logger !== null && $this->logLevel !== null) {
+            $builder = $builder->withDefaultDriverConfiguration(
+                DriverConfiguration::default()->withLogger($this->logLevel, $this->logger)
+            );
+        }
+
+        foreach ($this->connections as $connection) {
+            $uri = Uri::create($connection['uri']);
+
+            $auth = $this->createAuth($connection);
+            $driverConfig = $this->createDriverConfig($connection);
+            $sessionConfig = $this->createSessionConfig($connection);
+            $transactionConfig = $this->createTransactionConfig($connection);
+
+            $builder = $builder->withDriver(
+                $connection['alias'],
+                (string) $uri,
+                $auth
+            );
+
+            if ($driverConfig !== null) {
+                $builder = $builder->withDefaultDriverConfiguration($driverConfig);
+            }
+
+            if ($sessionConfig !== null) {
+                $builder = $builder->withDefaultSessionConfiguration($sessionConfig);
+            }
+
+            if ($transactionConfig !== null) {
+                $builder = $builder->withDefaultTransactionConfiguration($transactionConfig);
+            }
+        }
+
+        return $builder->build();
+    }
+
+    private function createAuth(array $connection): AuthenticateInterface
+    {
+        return isset($connection['authentication'])
+            ? $this->createAuthFromConfig($connection['authentication'])
+            : Authenticate::basic($connection['username'], $connection['password']);
+    }
+
+    private function createAuthFromConfig(array $config): AuthenticateInterface
+    {
+        return match ($config['scheme']) {
+            'basic' => Authenticate::basic($config['username'], $config['password']),
+            'kerberos' => Authenticate::kerberos($config['ticket']),
+            'oidc' => Authenticate::oidc($config['token']),
+            'none' => Authenticate::disabled(),
+            default => throw new \InvalidArgumentException('Invalid authentication scheme'),
+        };
+    }
+
+    private function createDriverConfig(array $connection): ?DriverConfiguration
+    {
+        $config = array_merge($this->driverConfig ?? [], $connection['driver_config'] ?? []);
+
+        if (empty($config)) {
+            return null;
+        }
+
+        $driverConfig = DriverConfiguration::default();
+
+        if (isset($config['max_pool_size'])) {
+            $driverConfig = $driverConfig->withMaxPoolSize($config['max_pool_size']);
+        }
+
+        if (isset($config['connection_timeout'])) {
+            $driverConfig = $driverConfig->withAcquireConnectionTimeout($config['connection_timeout']);
+        }
+
+        if (isset($config['ssl'])) {
+            $driverConfig = $driverConfig->withSslConfiguration(
+                $this->createSslConfig($config['ssl'])
+            );
+        }
+
+        return $driverConfig;
+    }
+
+    private function createSslConfig(array $config): SslConfiguration
+    {
+        $mode = match ($config['mode'] ?? 'from_url') {
+            'enable' => SslMode::ENABLE(),
+            'enable_with_self_signed' => SslMode::ENABLE_WITH_SELF_SIGNED(),
+            'disable' => SslMode::DISABLE(),
+            'from_url' => SslMode::FROM_URL(),
+            default => throw new \InvalidArgumentException('Invalid SSL mode'),
+        };
+
+        return SslConfiguration::create($mode, $config['verify_peer'] ?? true);
+    }
+
+    private function createSessionConfig(array $connection): ?SessionConfiguration
+    {
+        $config = array_merge($this->sessionConfiguration ?? [], $connection['session_config'] ?? []);
+
+        if (empty($config)) {
+            return null;
+        }
+
+        $sessionConfig = SessionConfiguration::default();
+
+        if (isset($config['database'])) {
+            $sessionConfig = $sessionConfig->withDatabase($config['database']);
+        }
+
+        return $sessionConfig;
+    }
+
+    private function createTransactionConfig(array $connection): ?TransactionConfiguration
+    {
+        $config = array_merge($this->transactionConfiguration ?? [], $connection['transaction_config'] ?? []);
+
+        if (empty($config)) {
+            return null;
+        }
+
+        $transactionConfig = TransactionConfiguration::default();
+
+        if (isset($config['timeout'])) {
+            $transactionConfig = $transactionConfig->withTimeout($config['timeout']);
+        }
+
+        return $transactionConfig;
+    }
+}
