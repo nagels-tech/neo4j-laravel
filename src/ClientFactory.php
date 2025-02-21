@@ -18,14 +18,13 @@ use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
-class ClientFactory
+final class ClientFactory
 {
     public function __construct(
         private readonly ?array $driverConfig,
         private readonly ?array $sessionConfiguration,
         private readonly ?array $transactionConfiguration,
         private readonly array $connections,
-        private readonly ?string $defaultDriver,
         private readonly ?HttpClientInterface $client,
         private readonly ?StreamFactoryInterface $streamFactory,
         private readonly ?RequestFactoryInterface $requestFactory,

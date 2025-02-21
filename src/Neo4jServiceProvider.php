@@ -12,11 +12,8 @@ use Psr\Http\Client\ClientInterface as HttpClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
 
-class Neo4jServiceProvider extends ServiceProvider
+final class Neo4jServiceProvider extends ServiceProvider
 {
-    /**
-     * Register services.
-     */
     public function register(): void
     {
         $this->mergeConfigFrom(
@@ -24,14 +21,13 @@ class Neo4jServiceProvider extends ServiceProvider
             'neo4j'
         );
 
-        // Bind PSR HTTP client interfaces
         $this->app->bind(HttpClientInterface::class, \GuzzleHttp\Client::class);
         $this->app->bind(RequestFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
         $this->app->bind(StreamFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
 
         $this->app->singleton(ClientFactory::class, function ($app) {
             $connections = collect(config('neo4j.connections'))->map(function ($config, $name) {
-                if (!isset($config['url'])) {
+                if (! isset($config['url'])) {
                     throw new BindingResolutionException("The url configuration is required for Neo4j connection: {$name}");
                 }
 
@@ -52,7 +48,7 @@ class Neo4jServiceProvider extends ServiceProvider
             })->all();
 
             $defaultConnection = config('neo4j.connections.' . config('neo4j.default'));
-            if (!$defaultConnection) {
+            if (! $defaultConnection) {
                 throw new BindingResolutionException('Default Neo4j connection is not configured');
             }
 
@@ -89,9 +85,6 @@ class Neo4jServiceProvider extends ServiceProvider
         });
     }
 
-    /**
-     * Bootstrap services.
-     */
     public function boot(): void
     {
         if ($this->app->runningInConsole()) {
@@ -101,9 +94,6 @@ class Neo4jServiceProvider extends ServiceProvider
         }
     }
 
-    /**
-     * Build the authentication configuration.
-     */
     protected function buildAuthConfig(array $config): array
     {
         $auth = [
@@ -119,9 +109,6 @@ class Neo4jServiceProvider extends ServiceProvider
         return $auth;
     }
 
-    /**
-     * Build the driver configuration.
-     */
     protected function buildDriverConfig(array $config): array
     {
         $connection = $config['connection'] ?? [];

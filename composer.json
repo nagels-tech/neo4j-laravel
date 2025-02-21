@@ -22,7 +22,24 @@
   },
   "require-dev": {
     "orchestra/testbench": "^9.0",
-    "phpunit/phpunit": "^11.0"
+    "phpunit/phpunit": "^11.0",
+    "vimeo/psalm": "^6.8",
+    "psalm/plugin-laravel": "^2.12",
+    "friendsofphp/php-cs-fixer": "^3.69"
+  },
+  "scripts": {
+    "psalm": "vendor/bin/psalm",
+    "psalm:fix": "vendor/bin/psalm --alter --issues=all",
+    "cs": "vendor/bin/php-cs-fixer fix -v --dry-run",
+    "cs:fix": "vendor/bin/php-cs-fixer fix -v",
+    "analyse": [
+      "@psalm",
+      "@cs"
+    ],
+    "fix": [
+      "@psalm:fix",
+      "@cs:fix"
+    ]
   },
   "extra": {
     "laravel": {

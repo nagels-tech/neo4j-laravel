@@ -7,10 +7,10 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
+use Mockery;
 use Neo4jPhp\Neo4jLaravel\ClientFactory;
 use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
-use Mockery;
 use Psr\Log\LoggerInterface;
 
 class Neo4jServiceProviderTest extends TestCase
