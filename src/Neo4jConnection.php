@@ -169,6 +169,7 @@ class Neo4jConnection extends Connection
     public function update($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
+
         return $result->summaryCounters()->nodesCreated() + $result->summaryCounters()->nodesDeleted();
     }
 
@@ -182,6 +183,7 @@ class Neo4jConnection extends Connection
     public function delete($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
+
         return $result->summaryCounters()->nodesDeleted();
     }
 
@@ -207,6 +209,7 @@ class Neo4jConnection extends Connection
     public function affectingStatement($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
+
         return $result->summaryCounters()->nodesCreated() +
             $result->summaryCounters()->nodesDeleted() +
             $result->summaryCounters()->propertiesSet();

@@ -8,7 +8,6 @@ use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Mockery;
-use Neo4jPhp\Neo4jLaravel\ClientFactory;
 use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Psr\Log\LoggerInterface;

@@ -30,7 +30,8 @@ final class ClientFactory
         private readonly ?RequestFactoryInterface $requestFactory,
         private readonly ?string $logLevel,
         private readonly ?LoggerInterface $logger
-    ) {}
+    ) {
+    }
 
     /** @psalm-suppress PossiblyUnusedMethod */
     public function create(): ClientInterface

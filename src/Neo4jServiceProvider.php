@@ -5,6 +5,7 @@ namespace Neo4jPhp\Neo4jLaravel;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Connection;
+use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\ServiceProvider;
 use Laudis\Neo4j\Authentication\Authenticate;
 use Laudis\Neo4j\ClientBuilder;
@@ -20,7 +21,6 @@ use Laudis\Neo4j\Enum\SslMode;
 use Psr\Http\Client\ClientInterface as HttpClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
-use Illuminate\Database\DatabaseManager;
 
 /** @psalm-suppress UnusedClass */
 final class Neo4jServiceProvider extends ServiceProvider
@@ -42,7 +42,7 @@ final class Neo4jServiceProvider extends ServiceProvider
             $configuredDrivers = [];
 
             foreach ($connections as $name => $connection) {
-                if (!isset($connection['driver']) || $connection['driver'] !== 'neo4j') {
+                if (! isset($connection['driver']) || $connection['driver'] !== 'neo4j') {
                     continue;
                 }
 
@@ -75,7 +75,7 @@ final class Neo4jServiceProvider extends ServiceProvider
                 }
             }
 
-            if (!in_array($defaultConnection, $configuredDrivers, true)) {
+            if (! in_array($defaultConnection, $configuredDrivers, true)) {
                 throw new BindingResolutionException('No valid Neo4j connection configured');
             }
 
@@ -100,12 +100,15 @@ final class Neo4jServiceProvider extends ServiceProvider
         $this->app->resolving('db', function (DatabaseManager $db) {
             $db->extend('neo4j', function ($config, $name) {
                 $client = $this->app->make(ClientInterface::class);
+
                 return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
             });
         });
     }
 
-    public function boot(): void {}
+    public function boot(): void
+    {
+    }
 
     private function buildAuthentication(array $config): \Laudis\Neo4j\Contracts\AuthenticateInterface
     {
@@ -169,11 +172,11 @@ final class Neo4jServiceProvider extends ServiceProvider
 
     private function validateConnection(string $name, array $config): void
     {
-        if (!isset($config['driver']) || $config['driver'] !== 'neo4j') {
+        if (! isset($config['driver']) || $config['driver'] !== 'neo4j') {
             throw new BindingResolutionException("Invalid driver for Neo4j connection: {$name}");
         }
 
-        if (!isset($config['url']) && (!isset($config['host']) || !isset($config['port']))) {
+        if (! isset($config['url']) && (! isset($config['host']) || ! isset($config['port']))) {
             throw new BindingResolutionException("Missing required URL or host/port configuration for Neo4j connection: {$name}");
         }
     }
