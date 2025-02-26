@@ -15,4 +15,4 @@ RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext
 
 WORKDIR /opt/project
 
-CMD ["php", "-S", "0.0.0.0:80", "-t", "/opt/project/tests/App"]
+ENTRYPOINT ["php", "--version"]
