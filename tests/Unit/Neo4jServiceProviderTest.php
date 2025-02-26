@@ -165,14 +165,13 @@ class Neo4jServiceProviderTest extends TestCase
         $this->expectException(BindingResolutionException::class);
 
         // Clear all connections and set an invalid default
-        $this->app['config']->set('neo4j.connections', [
-            'invalid' => [
-                'username' => 'neo4j',
-                'password' => 'password',
-            ],
+        $this->app['config']->set('database.default', 'neo4j');
+        $this->app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
+            'username' => 'neo4j',
+            'password' => 'password',
         ]);
 
-        $this->app->forgetInstance(ClientFactory::class);
         $this->app->forgetInstance(ClientInterface::class);
         $this->app->make(ClientInterface::class);
     }

@@ -14,5 +14,3 @@ RUN echo "xdebug.client_host=host.docker.internal" >> /usr/local/etc/php/conf.d/
 RUN echo "xdebug.mode=debug,develop" >> /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
 
 WORKDIR /opt/project
-
-ENTRYPOINT ["php", "--version"]
