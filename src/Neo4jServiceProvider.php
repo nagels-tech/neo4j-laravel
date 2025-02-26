@@ -20,6 +20,7 @@ use Laudis\Neo4j\Enum\SslMode;
 use Psr\Http\Client\ClientInterface as HttpClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\StreamFactoryInterface;
+use Illuminate\Database\DatabaseManager;
 
 /** @psalm-suppress UnusedClass */
 final class Neo4jServiceProvider extends ServiceProvider
@@ -27,11 +28,6 @@ final class Neo4jServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
-        $this->mergeConfigFrom(
-            __DIR__ . '/../config/neo4j.php',
-            'neo4j'
-        );
-
         $this->app->bind(HttpClientInterface::class, \GuzzleHttp\Client::class);
         $this->app->bind(RequestFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
         $this->app->bind(StreamFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
@@ -100,28 +96,20 @@ final class Neo4jServiceProvider extends ServiceProvider
             return $app->make(SessionInterface::class)->beginTransaction();
         });
 
-        Connection::resolverFor('neo4j', function ($connection, $database, $prefix, $config) {
-            return new Neo4jConnection(
-                $this->app->make(ClientInterface::class),
-                $database,
-                $prefix,
-                $config
-            );
+        // Register the Neo4j connection with Laravel's database manager
+        $this->app->resolving('db', function (DatabaseManager $db) {
+            $db->extend('neo4j', function ($config, $name) {
+                $client = $this->app->make(ClientInterface::class);
+                return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
+            });
         });
     }
 
-    public function boot(): void
-    {
-        if ($this->app->runningInConsole()) {
-            $this->publishes([
-                __DIR__ . '/../config/neo4j.php' => config_path('neo4j.php'),
-            ], 'neo4j-config');
-        }
-    }
+    public function boot(): void {}
 
     private function buildAuthentication(array $config): \Laudis\Neo4j\Contracts\AuthenticateInterface
     {
-        $scheme = $config['scheme'] ?? 'basic';
+        $scheme = $config['auth_scheme'] ?? 'basic';
 
         return match ($scheme) {
             'basic' => Authenticate::basic(
@@ -152,12 +140,12 @@ final class Neo4jServiceProvider extends ServiceProvider
             $driverConfig = $driverConfig->withHttpPsrBindings($bindings);
         }
 
-        if (isset($config['pool']['max_size'])) {
-            $driverConfig = $driverConfig->withMaxPoolSize($config['pool']['max_size']);
+        if (isset($config['connection']['max_pool_size'])) {
+            $driverConfig = $driverConfig->withMaxPoolSize($config['connection']['max_pool_size']);
         }
 
-        if (isset($config['timeout']['connection'])) {
-            $driverConfig = $driverConfig->withAcquireConnectionTimeout($config['timeout']['connection']);
+        if (isset($config['connection']['timeout'])) {
+            $driverConfig = $driverConfig->withAcquireConnectionTimeout($config['connection']['timeout']);
         }
 
         if (isset($config['ssl'])) {

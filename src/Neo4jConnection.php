@@ -14,7 +14,7 @@ class Neo4jConnection extends Connection
 
     public function __construct(
         ClientInterface $client,
-        string $database = '',
+        string $database = 'neo4j',
         string $tablePrefix = '',
         array $config = []
     ) {
@@ -22,14 +22,17 @@ class Neo4jConnection extends Connection
         parent::__construct(null, $database, $tablePrefix, $config);
     }
 
+    public function getClient(): ClientInterface
+    {
+        return $this->client;
+    }
+
     /**
      * Begin a new database transaction.
-     *
-     * @throws \Throwable
      */
-    public function beginTransaction(): void
+    public function beginTransaction(): TransactionInterface
     {
-        $this->transaction = $this->client->beginTransaction();
+        return $this->client->beginTransaction();
     }
 
     /**
@@ -129,20 +132,19 @@ class Neo4jConnection extends Connection
      */
     public function getName(): string
     {
-        return $this->getConfig('name');
+        return $this->getConfig('name') ?? 'neo4j';
     }
 
     /**
      * Run a select statement against the database.
-     *
-     * @param  string  $query
-     * @param  array  $bindings
-     * @param  bool  $useReadPdo
-     * @return array
      */
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
-        return $this->read($query, $bindings)->toArray();
+        try {
+            return $this->read($query, $bindings)->toArray();
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
     /**
@@ -208,5 +210,139 @@ class Neo4jConnection extends Connection
         return $result->summaryCounters()->nodesCreated() +
             $result->summaryCounters()->nodesDeleted() +
             $result->summaryCounters()->propertiesSet();
+    }
+
+    /**
+     * Get the default query grammar instance.
+     *
+     * @return \Illuminate\Database\Query\Grammars\Grammar
+     */
+    protected function getDefaultQueryGrammar()
+    {
+        // Neo4j doesn't use SQL grammar, but we need to implement this method
+        return null;
+    }
+
+    /**
+     * Get the default schema grammar instance.
+     *
+     * @return \Illuminate\Database\Schema\Grammars\Grammar
+     */
+    protected function getDefaultSchemaGrammar()
+    {
+        // Neo4j doesn't use SQL schema grammar, but we need to implement this method
+        return null;
+    }
+
+    /**
+     * Get the default post processor instance.
+     *
+     * @return \Illuminate\Database\Query\Processors\Processor
+     */
+    protected function getDefaultPostProcessor()
+    {
+        // Neo4j doesn't use SQL post processor, but we need to implement this method
+        return null;
+    }
+
+    /**
+     * Get an attribute from the connection.
+     *
+     * @param  string  $key
+     * @param  mixed  $default
+     * @return mixed
+     */
+    public function getAttribute($key, $default = null)
+    {
+        return $default;
+    }
+
+    /**
+     * Get the table prefix for the connection.
+     *
+     * @return string
+     */
+    public function getTablePrefix(): string
+    {
+        return '';
+    }
+
+    /**
+     * Set the table prefix in use by the connection.
+     *
+     * @param  string  $prefix
+     * @return void
+     */
+    public function setTablePrefix($prefix): void
+    {
+        // Neo4j doesn't use table prefixes
+    }
+
+    /**
+     * Get the connection query log.
+     *
+     * @return array
+     */
+    public function getQueryLog(): array
+    {
+        return [];
+    }
+
+    /**
+     * Clear the query log.
+     *
+     * @return void
+     */
+    public function flushQueryLog(): void
+    {
+        // Neo4j doesn't maintain a query log in this implementation
+    }
+
+    /**
+     * Enable the query log on the connection.
+     *
+     * @return void
+     */
+    public function enableQueryLog(): void
+    {
+        // Neo4j doesn't maintain a query log in this implementation
+    }
+
+    /**
+     * Disable the query log on the connection.
+     *
+     * @return void
+     */
+    public function disableQueryLog(): void
+    {
+        // Neo4j doesn't maintain a query log in this implementation
+    }
+
+    /**
+     * Determine whether we're logging queries.
+     *
+     * @return bool
+     */
+    public function logging(): bool
+    {
+        return false;
+    }
+
+    /**
+     * Get the connection resolver for the given driver.
+     *
+     * @param  string  $driver
+     * @return \Closure|null
+     */
+    public static function getResolver($driver): ?\Closure
+    {
+        return function () {
+            return new static(
+                app()->make(ClientInterface::class),
+                config('database.connections.neo4j.database', 'neo4j'),
+                '',
+                config('database.connections.neo4j', [])
+            );
+        };
     }
 }
