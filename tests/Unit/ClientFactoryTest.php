@@ -5,9 +5,6 @@ namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Neo4jPhp\Neo4jLaravel\ClientFactory;
 use Orchestra\Testbench\TestCase;
-use Psr\Http\Client\ClientInterface as HttpClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
 class ClientFactoryTest extends TestCase
@@ -65,9 +62,6 @@ class ClientFactoryTest extends TestCase
             $this->defaultTransactionConfig,
             $this->connections,
             null,
-            null,
-            null,
-            null,
             null
         );
 
@@ -84,33 +78,8 @@ class ClientFactoryTest extends TestCase
             $this->defaultSessionConfig,
             $this->defaultTransactionConfig,
             $this->connections,
-            null,
-            null,
-            null,
             'debug',
             $logger
-        );
-
-        $client = $factory->create();
-        $this->assertInstanceOf(ClientInterface::class, $client);
-    }
-
-    public function test_creates_client_with_http_bindings(): void
-    {
-        $httpClient = $this->createMock(HttpClientInterface::class);
-        $streamFactory = $this->createMock(StreamFactoryInterface::class);
-        $requestFactory = $this->createMock(RequestFactoryInterface::class);
-
-        $factory = new ClientFactory(
-            $this->defaultDriverConfig,
-            $this->defaultSessionConfig,
-            $this->defaultTransactionConfig,
-            $this->connections,
-            $httpClient,
-            $streamFactory,
-            $requestFactory,
-            null,
-            null
         );
 
         $client = $factory->create();
@@ -177,9 +146,6 @@ class ClientFactoryTest extends TestCase
             $this->defaultTransactionConfig,
             $connections,
             null,
-            null,
-            null,
-            null,
             null
         );
 
@@ -208,9 +174,6 @@ class ClientFactoryTest extends TestCase
             $this->defaultTransactionConfig,
             $connections,
             null,
-            null,
-            null,
-            null,
             null
         );
 
@@ -237,9 +200,6 @@ class ClientFactoryTest extends TestCase
             $this->defaultSessionConfig,
             $this->defaultTransactionConfig,
             $connections,
-            null,
-            null,
-            null,
             null,
             null
         );
@@ -273,9 +233,6 @@ class ClientFactoryTest extends TestCase
                 $this->defaultSessionConfig,
                 $this->defaultTransactionConfig,
                 $connections,
-                null,
-                null,
-                null,
                 null,
                 null
             );

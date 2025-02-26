@@ -8,14 +8,10 @@ use Laudis\Neo4j\Common\Uri;
 use Laudis\Neo4j\Contracts\AuthenticateInterface;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Databags\DriverConfiguration;
-use Laudis\Neo4j\Databags\HttpPsrBindings;
 use Laudis\Neo4j\Databags\SessionConfiguration;
 use Laudis\Neo4j\Databags\SslConfiguration;
 use Laudis\Neo4j\Databags\TransactionConfiguration;
 use Laudis\Neo4j\Enum\SslMode;
-use Psr\Http\Client\ClientInterface as HttpClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Log\LoggerInterface;
 
 final class ClientFactory
@@ -25,9 +21,6 @@ final class ClientFactory
         private readonly ?array $sessionConfiguration,
         private readonly ?array $transactionConfiguration,
         private readonly array $connections,
-        private readonly ?HttpClientInterface $client,
-        private readonly ?StreamFactoryInterface $streamFactory,
-        private readonly ?RequestFactoryInterface $requestFactory,
         private readonly ?string $logLevel,
         private readonly ?LoggerInterface $logger
     ) {
@@ -37,13 +30,6 @@ final class ClientFactory
     public function create(): ClientInterface
     {
         $builder = ClientBuilder::create();
-
-        if ($this->client !== null && $this->streamFactory !== null && $this->requestFactory !== null) {
-            $bindings = new HttpPsrBindings($this->client, $this->streamFactory, $this->requestFactory);
-            $builder = $builder->withDefaultDriverConfiguration(
-                DriverConfiguration::default()->withHttpPsrBindings($bindings)
-            );
-        }
 
         if ($this->logger !== null && $this->logLevel !== null) {
             $builder = $builder->withDefaultDriverConfiguration(

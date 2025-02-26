@@ -14,13 +14,9 @@ use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Databags\DriverConfiguration;
-use Laudis\Neo4j\Databags\HttpPsrBindings;
 use Laudis\Neo4j\Databags\SessionConfiguration;
 use Laudis\Neo4j\Databags\SslConfiguration;
 use Laudis\Neo4j\Enum\SslMode;
-use Psr\Http\Client\ClientInterface as HttpClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
-use Psr\Http\Message\StreamFactoryInterface;
 
 /** @psalm-suppress UnusedClass */
 final class Neo4jServiceProvider extends ServiceProvider
@@ -28,10 +24,6 @@ final class Neo4jServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
-        $this->app->bind(HttpClientInterface::class, \GuzzleHttp\Client::class);
-        $this->app->bind(RequestFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
-        $this->app->bind(StreamFactoryInterface::class, \GuzzleHttp\Psr7\HttpFactory::class);
-
         $this->app->singleton(ClientInterface::class, function (Application $app): ClientInterface {
             $builder = ClientBuilder::create();
             $config = $app['config'];
@@ -128,43 +120,40 @@ final class Neo4jServiceProvider extends ServiceProvider
 
     private function buildDriverConfiguration(array $config): ?DriverConfiguration
     {
-        $driverConfig = DriverConfiguration::default();
+        $builder = ClientBuilder::create();
 
         if (
-            $this->app->has(HttpClientInterface::class) &&
-            $this->app->has(StreamFactoryInterface::class) &&
-            $this->app->has(RequestFactoryInterface::class)
+            isset($config['connection']['max_pool_size']) ||
+            isset($config['connection']['timeout']) ||
+            isset($config['ssl'])
         ) {
-            $bindings = new HttpPsrBindings(
-                $this->app->make(HttpClientInterface::class),
-                $this->app->make(StreamFactoryInterface::class),
-                $this->app->make(RequestFactoryInterface::class)
-            );
-            $driverConfig = $driverConfig->withHttpPsrBindings($bindings);
-        }
+            $driverConfig = DriverConfiguration::default();
 
-        if (isset($config['connection']['max_pool_size'])) {
-            $driverConfig = $driverConfig->withMaxPoolSize($config['connection']['max_pool_size']);
-        }
+            if (isset($config['connection']['max_pool_size'])) {
+                $driverConfig = $driverConfig->withMaxPoolSize($config['connection']['max_pool_size']);
+            }
 
-        if (isset($config['connection']['timeout'])) {
-            $driverConfig = $driverConfig->withAcquireConnectionTimeout($config['connection']['timeout']);
-        }
+            if (isset($config['connection']['timeout'])) {
+                $driverConfig = $driverConfig->withAcquireConnectionTimeout($config['connection']['timeout']);
+            }
 
-        if (isset($config['ssl'])) {
-            $sslMode = match ($config['ssl']['mode'] ?? 'from_url') {
-                'enable' => SslMode::ENABLE(),
-                'enable_with_self_signed' => SslMode::ENABLE_WITH_SELF_SIGNED(),
-                'disable' => SslMode::DISABLE(),
-                default => SslMode::FROM_URL(),
-            };
+            if (isset($config['ssl'])) {
+                $sslMode = match ($config['ssl']['mode'] ?? 'from_url') {
+                    'enable' => SslMode::ENABLE(),
+                    'enable_with_self_signed' => SslMode::ENABLE_WITH_SELF_SIGNED(),
+                    'disable' => SslMode::DISABLE(),
+                    default => SslMode::FROM_URL(),
+                };
 
-            $sslConfig = SslConfiguration::create(
-                $sslMode,
-                $config['ssl']['verify_peer'] ?? true
-            );
+                $sslConfig = SslConfiguration::create(
+                    $sslMode,
+                    $config['ssl']['verify_peer'] ?? true
+                );
 
-            $driverConfig = $driverConfig->withSslConfiguration($sslConfig);
+                $driverConfig = $driverConfig->withSslConfiguration($sslConfig);
+            }
+
+            $builder = $builder->withDefaultDriverConfiguration($driverConfig);
         }
 
         return $driverConfig;
