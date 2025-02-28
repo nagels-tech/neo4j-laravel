@@ -94,12 +94,14 @@ final class Neo4jServiceProvider extends ServiceProvider
         });
 
         // Register the Neo4j connection with Laravel's database manager
-        $this->app->resolving('db', function (DatabaseManager $db) {
-            $db->extend('neo4j', /** @psalm-suppress UnusedClosureParam */ function (array $config, string $name) {
-                $client = $this->app->make(ClientInterface::class);
+        $manager = $this->app->make('db');
+        $manager->extend('neo4j', function (array $config, string $name) {
+            $client = $this->app->make(ClientInterface::class);
+            
+            // Store the connection name in the config
+            $config['name'] = $name;
 
-                return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
-            });
+            return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
         });
     }
 

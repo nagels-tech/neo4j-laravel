@@ -3,9 +3,11 @@
 namespace Neo4jPhp\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
+use Illuminate\Support\Facades\DB;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
@@ -183,6 +185,27 @@ final class Neo4jConnection extends Connection
     public function getName(): string
     {
         return $this->getConfig('name') ?? 'neo4j';
+    }
+
+    /**
+     * Get the database name.
+     */
+    public function getDatabaseName(): string
+    {
+        return $this->database;
+    }
+
+    /**
+     * Switch to a different Neo4j database within the same connection.
+     *
+     * @param string $database The database name to switch to
+     * @return self Returns this connection for chaining
+     */
+    public function useDatabase(string $database): self
+    {
+        $this->database = $database;
+        
+        return $this;
     }
 
     /**
@@ -409,5 +432,20 @@ final class Neo4jConnection extends Connection
     public static function getResolver($driver): ?\Closure
     {
         return static::$resolvers[$driver] ?? null;
+    }
+
+    /**
+     * Get the connection configuration.
+     * 
+     * @param string|null $name The configuration option name or null for all configuration
+     * @return mixed The configuration value or all configuration
+     */
+    public function getConfig($name = null)
+    {
+        if ($name) {
+            return $this->config[$name] ?? null;
+        }
+        
+        return $this->config;
     }
 }
