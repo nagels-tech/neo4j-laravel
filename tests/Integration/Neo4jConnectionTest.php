@@ -17,14 +17,13 @@ class Neo4jConnectionTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('neo4j.default', 'testing');
-        $app['config']->set('neo4j.connections', [
-            'testing' => [
-                'url' => 'bolt://neo4j:7687',
-                'username' => 'neo4j',
-                'password' => 'testtest',
-                'database' => 'neo4j',
-            ],
+        $app['config']->set('database.default', 'neo4j');
+        $app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
+            'url' => 'bolt://neo4j:7687',
+            'username' => 'neo4j',
+            'password' => 'testtest',
+            'database' => 'neo4j',
         ]);
     }
 

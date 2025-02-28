@@ -4,7 +4,6 @@ namespace Neo4jPhp\Neo4jLaravel;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\ServiceProvider;
 use Laudis\Neo4j\Authentication\Authenticate;
@@ -120,7 +119,7 @@ final class Neo4jServiceProvider extends ServiceProvider
 
     private function buildDriverConfiguration(array $config): ?DriverConfiguration
     {
-        $builder = ClientBuilder::create();
+        $driverConfig = null;
 
         if (
             isset($config['connection']['max_pool_size']) ||
@@ -152,8 +151,6 @@ final class Neo4jServiceProvider extends ServiceProvider
 
                 $driverConfig = $driverConfig->withSslConfiguration($sslConfig);
             }
-
-            $builder = $builder->withDefaultDriverConfiguration($driverConfig);
         }
 
         return $driverConfig;
