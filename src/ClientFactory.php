@@ -2,6 +2,7 @@
 
 namespace Neo4jPhp\Neo4jLaravel;
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Laudis\Neo4j\Authentication\Authenticate;
 use Laudis\Neo4j\ClientBuilder;
 use Laudis\Neo4j\Common\Uri;
@@ -25,7 +26,8 @@ final class ClientFactory
         private readonly ?array $transactionConfiguration,
         private readonly array $connections,
         private readonly ?string $logLevel,
-        private readonly ?LoggerInterface $logger
+        private readonly ?LoggerInterface $logger,
+        private readonly ?string $defaultDriver = null
     ) {
     }
 
@@ -68,6 +70,11 @@ final class ClientFactory
                 $builder = $builder->withDefaultTransactionConfiguration($transactionConfig);
             }
         }
+        
+        // Set default driver if provided
+        if ($this->defaultDriver !== null) {
+            $builder = $builder->withDefaultDriver($this->defaultDriver);
+        }
 
         return $builder->build();
     }
@@ -86,7 +93,7 @@ final class ClientFactory
             'kerberos' => Authenticate::kerberos($config['ticket']),
             'oidc' => Authenticate::oidc($config['token']),
             'none' => Authenticate::disabled(),
-            default => throw new \InvalidArgumentException('Invalid authentication scheme'),
+            default => throw new BindingResolutionException("Unsupported authentication scheme: {$config['scheme']}"),
         };
     }
 
@@ -124,7 +131,7 @@ final class ClientFactory
             'enable_with_self_signed' => SslMode::ENABLE_WITH_SELF_SIGNED(),
             'disable' => SslMode::DISABLE(),
             'from_url' => SslMode::FROM_URL(),
-            default => throw new \InvalidArgumentException('Invalid SSL mode'),
+            default => throw new BindingResolutionException("Unsupported SSL mode: " . ($config['mode'] ?? 'unknown')),
         };
 
         return SslConfiguration::create($mode, $config['verify_peer'] ?? true);
