@@ -14,6 +14,9 @@ use Laudis\Neo4j\Databags\TransactionConfiguration;
 use Laudis\Neo4j\Enum\SslMode;
 use Psr\Log\LoggerInterface;
 
+/**
+ * @psalm-suppress UnusedClass This factory is intended for future use
+ */
 final class ClientFactory
 {
     public function __construct(
@@ -26,7 +29,9 @@ final class ClientFactory
     ) {
     }
 
-    /** @psalm-suppress PossiblyUnusedMethod */
+    /**
+     * @psalm-suppress PossiblyUnusedMethod
+     */
     public function create(): ClientInterface
     {
         $builder = ClientBuilder::create();

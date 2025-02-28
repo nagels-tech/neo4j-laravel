@@ -3,14 +3,22 @@
 namespace Neo4jPhp\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
+use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
+use PDO;
 
-class Neo4jConnection extends Connection
+/**
+ * @psalm-suppress PropertyNotSetInConstructor
+ */
+final class Neo4jConnection extends Connection
 {
     private ClientInterface $client;
     private ?UnmanagedTransactionInterface $transaction = null;
+    private ?PDO $pdoMock = null;
 
     public function __construct(
         ClientInterface $client,
@@ -19,9 +27,15 @@ class Neo4jConnection extends Connection
         array $config = []
     ) {
         $this->client = $client;
-        parent::__construct(null, $database, $tablePrefix, $config);
+        // Use closure as PDO replacement since we can't pass null here
+        parent::__construct(function () { return null; }, $database, $tablePrefix, $config);
     }
 
+    /**
+     * Get the client instance.
+     *
+     * @psalm-suppress PossiblyUnusedMethod
+     */
     public function getClient(): ClientInterface
     {
         return $this->client;
@@ -30,6 +44,7 @@ class Neo4jConnection extends Connection
     /**
      * Begin a new database transaction.
      */
+    #[\Override]
     public function beginTransaction(): TransactionInterface
     {
         return $this->client->beginTransaction();
@@ -40,6 +55,7 @@ class Neo4jConnection extends Connection
      *
      * @throws \Throwable
      */
+    #[\Override]
     public function commit(): void
     {
         if ($this->transaction) {
@@ -56,6 +72,7 @@ class Neo4jConnection extends Connection
      *
      * @throws \Throwable
      */
+    #[\Override]
     public function rollBack($toLevel = null)
     {
         if ($this->transaction) {
@@ -70,6 +87,7 @@ class Neo4jConnection extends Connection
      * @param  \Closure  $callback
      * @return array
      */
+    #[\Override]
     public function pretend(\Closure $callback): array
     {
         return [];
@@ -77,9 +95,16 @@ class Neo4jConnection extends Connection
 
     /**
      * Run a Cypher statement and return the result.
+     *
+     * @param string $query Cypher query string
+     * @param array<string, mixed> $parameters The parameters for the Cypher query
+     * @return mixed The query result
+     *
+     * @psalm-suppress PossiblyUnusedMethod
      */
     public function runCypher(string $query, array $parameters = []): mixed
     {
+        /** @var array<string, mixed> $parameters */
         return $this->transaction
             ? $this->transaction->run($query, $parameters)
             : $this->client->run($query, $parameters);
@@ -87,11 +112,16 @@ class Neo4jConnection extends Connection
 
     /**
      * Run a Cypher statement in write mode.
+     *
+     * @param string $query Cypher query string
+     * @param array<string, mixed> $parameters The parameters for the Cypher query
+     * @return mixed The query result
      */
     public function write(string $query, array $parameters = []): mixed
     {
+        /** @var array<string, mixed> $parameters */
         return $this->client->writeTransaction(
-            static function (TransactionInterface $tx) use ($query, $parameters) {
+            static function (TransactionInterface $tx) use ($query, $parameters): mixed {
                 return $tx->run($query, $parameters);
             }
         );
@@ -99,11 +129,16 @@ class Neo4jConnection extends Connection
 
     /**
      * Run a Cypher statement in read mode.
+     *
+     * @param string $query Cypher query string
+     * @param array<string, mixed> $parameters The parameters for the Cypher query
+     * @return mixed The query result
      */
     public function read(string $query, array $parameters = []): mixed
     {
+        /** @var array<string, mixed> $parameters */
         return $this->client->readTransaction(
-            static function (TransactionInterface $tx) use ($query, $parameters) {
+            static function (TransactionInterface $tx) use ($query, $parameters): mixed {
                 return $tx->run($query, $parameters);
             }
         );
@@ -112,17 +147,31 @@ class Neo4jConnection extends Connection
     /**
      * Get the current PDO connection.
      * This is required by Laravel's Connection class but not used for Neo4j.
+     *
+     * @return PDO
+     * @psalm-suppress ImplementedReturnTypeMismatch
      */
-    public function getPdo(): mixed
+    #[\Override]
+    public function getPdo()
     {
-        return null;
+        // Create a mock PDO object to satisfy type checks
+        if ($this->pdoMock === null) {
+            // Create a mock PDO using SQLite memory
+            $this->pdoMock = new PDO('sqlite::memory:');
+        }
+
+        return $this->pdoMock;
     }
 
     /**
      * Get the current PDO connection used for reading.
      * This is required by Laravel's Connection class but not used for Neo4j.
+     *
+     * @return PDO
+     * @psalm-suppress ImplementedReturnTypeMismatch
      */
-    public function getReadPdo(): mixed
+    #[\Override]
+    public function getReadPdo()
     {
         return $this->getPdo();
     }
@@ -130,6 +179,7 @@ class Neo4jConnection extends Connection
     /**
      * Get the database connection name.
      */
+    #[\Override]
     public function getName(): string
     {
         return $this->getConfig('name') ?? 'neo4j';
@@ -138,6 +188,7 @@ class Neo4jConnection extends Connection
     /**
      * Run a select statement against the database.
      */
+    #[\Override]
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
         try {
@@ -154,6 +205,7 @@ class Neo4jConnection extends Connection
      * @param  array  $bindings
      * @return bool
      */
+    #[\Override]
     public function insert($query, $bindings = []): bool
     {
         return (bool) $this->write($query, $bindings);
@@ -166,6 +218,7 @@ class Neo4jConnection extends Connection
      * @param  array  $bindings
      * @return int
      */
+    #[\Override]
     public function update($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
@@ -180,6 +233,7 @@ class Neo4jConnection extends Connection
      * @param  array  $bindings
      * @return int
      */
+    #[\Override]
     public function delete($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
@@ -194,6 +248,7 @@ class Neo4jConnection extends Connection
      * @param  array  $bindings
      * @return bool
      */
+    #[\Override]
     public function statement($query, $bindings = []): bool
     {
         return (bool) $this->write($query, $bindings);
@@ -206,6 +261,7 @@ class Neo4jConnection extends Connection
      * @param  array  $bindings
      * @return int
      */
+    #[\Override]
     public function affectingStatement($query, $bindings = []): int
     {
         $result = $this->write($query, $bindings);
@@ -218,34 +274,34 @@ class Neo4jConnection extends Connection
     /**
      * Get the default query grammar instance.
      *
-     * @return \Illuminate\Database\Query\Grammars\Grammar
+     * @return QueryGrammar
      */
+    #[\Override]
     protected function getDefaultQueryGrammar()
     {
-        // Neo4j doesn't use SQL grammar, but we need to implement this method
-        return null;
+        return $this->withTablePrefix(new Neo4jQueryGrammar());
     }
 
     /**
      * Get the default schema grammar instance.
      *
-     * @return \Illuminate\Database\Schema\Grammars\Grammar
+     * @return SchemaGrammar
      */
+    #[\Override]
     protected function getDefaultSchemaGrammar()
     {
-        // Neo4j doesn't use SQL schema grammar, but we need to implement this method
-        return null;
+        return new Neo4jSchemaGrammar();
     }
 
     /**
      * Get the default post processor instance.
      *
-     * @return \Illuminate\Database\Query\Processors\Processor
+     * @return Processor
      */
+    #[\Override]
     protected function getDefaultPostProcessor()
     {
-        // Neo4j doesn't use SQL post processor, but we need to implement this method
-        return null;
+        return new Neo4jProcessor();
     }
 
     /**
@@ -254,6 +310,9 @@ class Neo4jConnection extends Connection
      * @param  string  $key
      * @param  mixed  $default
      * @return mixed
+     *
+     * @psalm-suppress PossiblyUnusedMethod
+     * @psalm-suppress UnusedParam
      */
     public function getAttribute($key, $default = null)
     {
@@ -265,20 +324,24 @@ class Neo4jConnection extends Connection
      *
      * @return string
      */
+    #[\Override]
     public function getTablePrefix(): string
     {
-        return '';
+        return $this->tablePrefix;
     }
 
     /**
      * Set the table prefix in use by the connection.
      *
      * @param  string  $prefix
-     * @return void
+     * @return $this
      */
-    public function setTablePrefix($prefix): void
+    #[\Override]
+    public function setTablePrefix($prefix): static
     {
-        // Neo4j doesn't use table prefixes
+        $this->tablePrefix = $prefix;
+
+        return $this;
     }
 
     /**
@@ -286,9 +349,10 @@ class Neo4jConnection extends Connection
      *
      * @return array
      */
+    #[\Override]
     public function getQueryLog(): array
     {
-        return [];
+        return $this->queryLog;
     }
 
     /**
@@ -296,9 +360,10 @@ class Neo4jConnection extends Connection
      *
      * @return void
      */
+    #[\Override]
     public function flushQueryLog(): void
     {
-        // Neo4j doesn't maintain a query log in this implementation
+        $this->queryLog = [];
     }
 
     /**
@@ -306,9 +371,10 @@ class Neo4jConnection extends Connection
      *
      * @return void
      */
+    #[\Override]
     public function enableQueryLog(): void
     {
-        // Neo4j doesn't maintain a query log in this implementation
+        $this->loggingQueries = true;
     }
 
     /**
@@ -316,9 +382,10 @@ class Neo4jConnection extends Connection
      *
      * @return void
      */
+    #[\Override]
     public function disableQueryLog(): void
     {
-        // Neo4j doesn't maintain a query log in this implementation
+        $this->loggingQueries = false;
     }
 
     /**
@@ -326,9 +393,10 @@ class Neo4jConnection extends Connection
      *
      * @return bool
      */
+    #[\Override]
     public function logging(): bool
     {
-        return false;
+        return $this->loggingQueries;
     }
 
     /**
@@ -337,15 +405,9 @@ class Neo4jConnection extends Connection
      * @param  string  $driver
      * @return \Closure|null
      */
+    #[\Override]
     public static function getResolver($driver): ?\Closure
     {
-        return function () {
-            return new static(
-                app()->make(ClientInterface::class),
-                config('database.connections.neo4j.database', 'neo4j'),
-                '',
-                config('database.connections.neo4j', [])
-            );
-        };
+        return static::$resolvers[$driver] ?? null;
     }
 }

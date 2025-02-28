@@ -32,7 +32,8 @@
     "analyze": [
       "@cs",
       "@psalm"
-    ]
+    ],
+    "test": "vendor/bin/phpunit"
   },
   "extra": {
     "laravel": {

@@ -25,7 +25,7 @@ final class Neo4jServiceProvider extends ServiceProvider
     {
         $this->app->singleton(ClientInterface::class, function (Application $app): ClientInterface {
             $builder = ClientBuilder::create();
-            $config = $app['config'];
+            $config = $app->make('config');
 
             $defaultConnection = $config->get('database.default');
             $connections = $config->get('database.connections');
@@ -37,6 +37,7 @@ final class Neo4jServiceProvider extends ServiceProvider
                     continue;
                 }
 
+                /** @psalm-suppress PossiblyInvalidArgument */
                 $this->validateConnection($name, $connection);
 
                 $url = $connection['url'] ?? sprintf(
@@ -45,8 +46,13 @@ final class Neo4jServiceProvider extends ServiceProvider
                     $connection['port'] ?? 7687
                 );
 
+                /** @psalm-suppress PossiblyInvalidArgument */
                 $auth = $this->buildAuthentication($connection);
 
+                /**
+                 * @var array $connection
+                 * @psalm-suppress UnnecessaryVarAnnotation
+                 */
                 $driverConfig = $this->buildDriverConfiguration($connection);
                 if ($driverConfig !== null) {
                     $builder = $builder->withDefaultDriverConfiguration($driverConfig);
@@ -75,7 +81,7 @@ final class Neo4jServiceProvider extends ServiceProvider
 
         $this->app->singleton(DriverInterface::class, function (Application $app): DriverInterface {
             return $app->make(ClientInterface::class)->getDriver(
-                $app['config']->get('database.default')
+                $app->make('config')->get('database.default')
             );
         });
 
@@ -89,7 +95,7 @@ final class Neo4jServiceProvider extends ServiceProvider
 
         // Register the Neo4j connection with Laravel's database manager
         $this->app->resolving('db', function (DatabaseManager $db) {
-            $db->extend('neo4j', function ($config, $name) {
+            $db->extend('neo4j', /** @psalm-suppress UnusedClosureParam */ function (array $config, string $name) {
                 $client = $this->app->make(ClientInterface::class);
 
                 return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
