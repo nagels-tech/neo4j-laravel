@@ -22,7 +22,7 @@
     "orchestra/testbench": "^9.0 || ^10.0",
     "phpunit/phpunit": "^11.0",
     "vimeo/psalm": "^6.8",
-    "psalm/plugin-laravel": "^2.12",
+    "psalm/plugin-laravel": "^2.12 || ^3.0",
     "friendsofphp/php-cs-fixer": "^3.69",
     "barryvdh/laravel-debugbar": "^3.15"
   },
