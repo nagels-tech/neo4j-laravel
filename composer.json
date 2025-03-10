@@ -1,7 +1,6 @@
 {
   "name": "neo4j-php/neo4j-laravel",
   "description": "A Laravel package for Neo4j integration",
-  "version": "1.0.0",
   "type": "library",
   "license": "MIT",
   "autoload": {
