@@ -3,15 +3,15 @@
 namespace Neo4jPhp\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
-use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
-use Illuminate\Support\Facades\DB;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
 use PDO;
+use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Illuminate\Support\Facades\App;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -21,6 +21,7 @@ final class Neo4jConnection extends Connection
     private ClientInterface $client;
     private ?UnmanagedTransactionInterface $transaction = null;
     private ?PDO $pdoMock = null;
+    private ?Neo4jQueryCollector $queryCollector = null;
 
     public function __construct(
         ClientInterface $client,
@@ -30,7 +31,14 @@ final class Neo4jConnection extends Connection
     ) {
         $this->client = $client;
         // Use closure as PDO replacement since we can't pass null here
-        parent::__construct(function () { return null; }, $database, $tablePrefix, $config);
+        parent::__construct(function () {
+            return null;
+        }, $database, $tablePrefix, $config);
+
+        // Set up debugbar collector if available
+        if (App::bound(Neo4jQueryCollector::class)) {
+            $this->queryCollector = App::make(Neo4jQueryCollector::class);
+        }
     }
 
     /**
@@ -204,7 +212,7 @@ final class Neo4jConnection extends Connection
     public function useDatabase(string $database): self
     {
         $this->database = $database;
-        
+
         return $this;
     }
 
@@ -215,9 +223,13 @@ final class Neo4jConnection extends Connection
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
         try {
-            return $this->read($query, $bindings)->toArray();
+            $result = $this->runQueryCallback($query, $bindings, function () use ($query, $bindings) {
+                $result = $this->read($query, $bindings);
+                return is_array($result) ? $result : [$result];
+            });
+            return $result;
         } catch (\Exception $e) {
-            return [];
+            throw $e;
         }
     }
 
@@ -445,7 +457,39 @@ final class Neo4jConnection extends Connection
         if ($name) {
             return $this->config[$name] ?? null;
         }
-        
+
         return $this->config;
+    }
+
+    public function logQuery($query, $bindings, $time = null): void
+    {
+        // Call parent logging
+        parent::logQuery($query, $bindings, $time);
+
+        // Add to debugbar if available
+        if ($this->queryCollector !== null) {
+            $this->queryCollector->addQuery(
+                $query,
+                $bindings,
+                $time,
+                $this->getName()
+            );
+        }
+    }
+
+    protected function runQueryCallback($query, $bindings, \Closure $callback)
+    {
+        $start = microtime(true);
+
+        try {
+            $result = parent::runQueryCallback($query, $bindings, $callback);
+
+            $this->logQuery($query, $bindings, microtime(true) - $start);
+
+            return $result;
+        } catch (\Exception $e) {
+            $this->logQuery($query, $bindings, microtime(true) - $start);
+            throw $e;
+        }
     }
 }
