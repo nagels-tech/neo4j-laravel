@@ -3,28 +3,10 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
 use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class UseDatabaseTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
-    protected function defineEnvironment($app): void
-    {
-        $app['config']->set('database.default', 'neo4j');
-        $app['config']->set('database.connections.neo4j', [
-            'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
-            'username' => 'neo4j',
-            'password' => 'testtest',
-            'database' => 'neo4j',
-        ]);
-    }
-
     public function testUseDatabaseReturnsConnection(): void
     {
         $connection = app(Neo4jConnection::class);
@@ -43,7 +25,7 @@ class UseDatabaseTest extends TestCase
         $connection = app(Neo4jConnection::class);
 
         // Initial database should be neo4j (from config)
-        $this->assertEquals('neo4j', $connection->getDatabaseName());
+        $this->assertEquals(env('NEO4J_DATABASE', 'neo4j'), $connection->getDatabaseName());
 
         // Change the database
         $connection->useDatabase('test_db');

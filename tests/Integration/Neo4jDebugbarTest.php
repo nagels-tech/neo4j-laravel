@@ -6,8 +6,7 @@ use Barryvdh\Debugbar\LaravelDebugbar;
 use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jDebugbarTest extends TestCase
 {
@@ -16,24 +15,14 @@ class Neo4jDebugbarTest extends TestCase
 
     protected function getPackageProviders($app): array
     {
-        return [
-            Neo4jServiceProvider::class,
+        return array_merge(parent::getPackageProviders($app), [
             DebugbarServiceProvider::class,
-        ];
+        ]);
     }
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'neo4j');
-        $app['config']->set('database.connections.neo4j', [
-            'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
-            'username' => 'neo4j',
-            'password' => 'testtest',
-            'database' => 'neo4j',
-        ]);
-
-        $app['config']->set('debugbar.enabled', true);
+        parent::defineEnvironment($app);
         $app['config']->set('debugbar.collectors.neo4j', true);
     }
 

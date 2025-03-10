@@ -8,7 +8,7 @@ use Mockery;
 use Mockery\MockInterface;
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jConnectionDebugTest extends TestCase
 {
@@ -30,7 +30,7 @@ class Neo4jConnectionDebugTest extends TestCase
 
         $this->connection = new Neo4jConnection(
             $this->client,
-            'neo4j',
+            env('NEO4J_DATABASE', 'neo4j'),
             '',
             ['name' => 'testing']
         );

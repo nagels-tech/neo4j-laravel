@@ -8,30 +8,14 @@ use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Mockery;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 use Psr\Log\LoggerInterface;
 
 class Neo4jServiceProviderTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
     protected function defineEnvironment($app): void
     {
-        // Set up database configuration
-        $app['config']->set('database.default', 'neo4j');
-        $app['config']->set('database.connections.neo4j', [
-            'driver' => 'neo4j',
-            'url' => 'bolt://localhost:7687',
-            'host' => 'localhost',
-            'port' => 7687,
-            'username' => 'neo4j',
-            'password' => 'password',
-            'database' => 'neo4j',
-        ]);
+        parent::defineEnvironment($app);
 
         // Mock the Neo4j client and its dependencies
         $mockClient = Mockery::mock(ClientInterface::class);
@@ -78,19 +62,24 @@ class Neo4jServiceProviderTest extends TestCase
         $config = $this->app['config']->get('database.connections.neo4j');
 
         $this->assertEquals('neo4j', $config['driver']);
-        $this->assertArrayHasKey('host', $config);
-        $this->assertArrayHasKey('port', $config);
+        $this->assertArrayHasKey('url', $config);
         $this->assertArrayHasKey('username', $config);
         $this->assertArrayHasKey('password', $config);
+        $this->assertArrayHasKey('database', $config);
     }
 
     public function testHandlesMultipleConnections(): void
     {
-        $this->app['config']->set('neo4j.connections.second', [
-            'url' => 'bolt://second-host:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
-            'database' => 'neo4j',
+        $this->app['config']->set('database.connections.second', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
+            'database' => env('NEO4J_DATABASE', 'neo4j'),
             'auth_scheme' => 'basic',
             'ssl' => [
                 'mode' => 'from_url',
@@ -111,10 +100,15 @@ class Neo4jServiceProviderTest extends TestCase
 
     public function testHandlesMissingOptionalConfigs(): void
     {
-        $this->app['config']->set('neo4j.connections.minimal', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
+        $this->app['config']->set('database.connections.minimal', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
         ]);
 
         $client = $this->app->make(ClientInterface::class);
@@ -123,10 +117,15 @@ class Neo4jServiceProviderTest extends TestCase
 
     public function testHandlesCustomSslConfig(): void
     {
-        $this->app['config']->set('neo4j.connections.ssl', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
+        $this->app['config']->set('database.connections.ssl', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
             'ssl' => [
                 'mode' => 'verify_full',
                 'verify_peer' => true,
@@ -159,8 +158,8 @@ class Neo4jServiceProviderTest extends TestCase
         $this->app['config']->set('database.default', 'neo4j');
         $this->app['config']->set('database.connections.neo4j', [
             'driver' => 'neo4j',
-            'username' => 'neo4j',
-            'password' => 'password',
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
         ]);
 
         $this->app->forgetInstance(ClientInterface::class);
@@ -169,10 +168,15 @@ class Neo4jServiceProviderTest extends TestCase
 
     public function testHandlesNonBasicAuthSchemes(): void
     {
-        $this->app['config']->set('neo4j.connections.custom_auth', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
+        $this->app['config']->set('database.connections.custom_auth', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
             'auth_scheme' => 'custom',
             'auth_token' => 'custom-token',
         ]);
@@ -183,10 +187,15 @@ class Neo4jServiceProviderTest extends TestCase
 
     public function testHandlesConnectionPoolConfig(): void
     {
-        $this->app['config']->set('neo4j.connections.pool', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
+        $this->app['config']->set('database.connections.pool', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
             'connection' => [
                 'timeout' => 5,
                 'max_pool_size' => 50,

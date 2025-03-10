@@ -5,37 +5,18 @@ namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class RuntimeConnectionTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
-    protected function defineEnvironment($app): void
-    {
-        $app['config']->set('database.default', 'neo4j');
-        $app['config']->set('database.connections.neo4j', [
-            'driver' => 'neo4j',
-            'host' => 'neo4j',
-            'port' => 7687,
-            'username' => 'neo4j',
-            'password' => 'testtest',
-            'database' => 'neo4j',
-        ]);
-    }
-
     public function testCanAddRuntimeConnection(): void
     {
         // Add a new connection at runtime
         Config::set('database.connections.neo4j_runtime', [
             'driver' => 'neo4j',
-            'host' => 'neo4j',
-            'port' => 7688, // Different port
-            'username' => 'neo4j',
+            'host' => env('NEO4J_HOST', 'neo4j'),
+            'port' => (int)env('NEO4J_PORT', '7687'),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
             'password' => 'runtime_password',
             'database' => 'runtime_db',
         ]);
@@ -56,11 +37,11 @@ class RuntimeConnectionTest extends TestCase
         // Add a new connection at runtime
         Config::set('database.connections.neo4j_credentials', [
             'driver' => 'neo4j',
-            'host' => 'neo4j',
-            'port' => 7687,
+            'host' => env('NEO4J_HOST', 'neo4j'),
+            'port' => (int)env('NEO4J_PORT', '7687'),
             'username' => 'runtime_user',
             'password' => 'runtime_pass',
-            'database' => 'neo4j',
+            'database' => env('NEO4J_DATABASE', 'neo4j'),
         ]);
 
         // Get the connection

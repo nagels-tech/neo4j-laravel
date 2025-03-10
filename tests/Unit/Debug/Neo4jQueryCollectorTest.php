@@ -3,7 +3,7 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
 
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jQueryCollectorTest extends TestCase
 {

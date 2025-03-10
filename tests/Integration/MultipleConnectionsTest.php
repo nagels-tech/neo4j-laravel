@@ -5,34 +5,25 @@ namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class MultipleConnectionsTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
     protected function defineEnvironment($app): void
     {
-        // Define multiple Neo4j connections
-        $app['config']->set('database.default', 'neo4j_primary');
-        $app['config']->set('database.connections', [
-            'neo4j_primary' => [
-                'driver' => 'neo4j',
-                'url' => 'bolt://neo4j:7687',
-                'username' => 'neo4j',
-                'password' => 'testtest',
-                'database' => 'neo4j',
-            ],
-            'neo4j_secondary' => [
-                'driver' => 'neo4j',
-                'url' => 'bolt://neo4j:7687', // Same server for testing
-                'username' => 'neo4j',
-                'password' => 'testtest',
-                'database' => 'neo4j',
-            ],
+        parent::defineEnvironment($app);
+
+        // Define a second connection
+        $app['config']->set('database.connections.neo4j_secondary', [
+            'driver' => 'neo4j',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
+            'database' => 'neo4j',
         ]);
     }
 

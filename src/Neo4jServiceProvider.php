@@ -144,6 +144,13 @@ final class Neo4jServiceProvider extends ServiceProvider
             } else {
                 throw new BindingResolutionException('Unsupported authentication scheme: ' . $connection['auth_scheme']);
             }
+        } else {
+            // Default to basic auth if no scheme specified
+            $formattedConnection['authentication'] = [
+                'scheme' => 'basic',
+                'username' => $connection['username'] ?? '',
+                'password' => $connection['password'] ?? '',
+            ];
         }
 
         if (isset($connection['connection']) || isset($connection['ssl'])) {

@@ -3,48 +3,50 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Laudis\Neo4j\Contracts\ClientInterface;
+use Laudis\Neo4j\Exception\Neo4jException;
+use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 
 class AuthenticationEdgeCasesTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
     public function testEmptyCredentialsHandling(): void
     {
-        $this->app['config']->set('database.default', 'neo4j');
-        $this->app['config']->set('database.connections.neo4j', [
+        $this->app['config']->set('database.connections.empty_creds', [
             'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
-            'username' => '', // Empty username
-            'password' => '', // Empty password
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => '',
+            'password' => '',
             'database' => 'neo4j',
         ]);
 
-        // This should construct without errors even with empty credentials
-        // The actual connection will fail when trying to connect, but the construction should work
-        $client = $this->app->make(\Laudis\Neo4j\Contracts\ClientInterface::class);
-        $this->assertNotNull($client);
+        $this->expectException(Neo4jException::class);
+        $this->expectExceptionMessage('Neo.ClientError.Security.Unauthorized');
+
+        $this->app->make(ClientInterface::class)->getDriver('empty_creds');
     }
 
     public function testInvalidAuthenticationScheme(): void
     {
-        $this->app['config']->set('database.default', 'neo4j');
-        $this->app['config']->set('database.connections.neo4j', [
+        $this->app['config']->set('database.connections.invalid_scheme', [
             'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
-            'username' => 'neo4j',
-            'password' => 'testtest',
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
+            'username' => env('NEO4J_USERNAME', 'neo4j'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
             'database' => 'neo4j',
-            'auth_scheme' => 'invalid_scheme', // Invalid scheme
+            'auth_scheme' => 'invalid_scheme',
         ]);
 
         $this->expectException(BindingResolutionException::class);
         $this->expectExceptionMessage('Unsupported authentication scheme: invalid_scheme');
 
-        $this->app->make(\Laudis\Neo4j\Contracts\ClientInterface::class);
+        $this->app->make(ClientInterface::class)->getDriver('invalid_scheme');
     }
 }

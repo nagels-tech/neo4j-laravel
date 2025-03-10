@@ -17,16 +17,19 @@ abstract class TestCase extends BaseTestCase
 
     protected function defineEnvironment($app): void
     {
-        // Configure Neo4j connection for testing
         $app['config']->set('database.default', 'neo4j');
         $app['config']->set('database.connections.neo4j', [
             'driver' => 'neo4j',
-            'url' => env('NEO4J_URL', 'bolt://localhost:7687'),
+            'url' => sprintf(
+                'bolt://%s:%s',
+                env('NEO4J_HOST', 'neo4j'),
+                env('NEO4J_PORT', '7687')
+            ),
             'username' => env('NEO4J_USERNAME', 'neo4j'),
-            'password' => env('NEO4J_PASSWORD', 'password'),
+            'password' => env('NEO4J_PASSWORD', 'testtest'),
+            'database' => env('NEO4J_DATABASE', 'neo4j'),
         ]);
 
-        // Enable debugbar for testing
         $app['config']->set('debugbar.enabled', true);
     }
 }

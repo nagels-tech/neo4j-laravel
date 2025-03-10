@@ -11,7 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       APP_ENV: testing
-      NEO4J_URL: bolt://localhost:7687
+      NEO4J_HOST: localhost
+      NEO4J_DATABASE: neo4j
+      NEO4J_PORT: 7687
       NEO4J_USERNAME: neo4j
       NEO4J_PASSWORD: testtest
 
@@ -20,6 +22,21 @@ jobs:
       matrix:
         php: ["8.2", "8.3", "8.4"]
         laravel: ["11.0", "12.0"]
+
+    services:
+      neo4j:
+        image: neo4j:5.22
+        env:
+          NEO4J_AUTH: neo4j/testtest
+        options: >-
+          --health-cmd "wget -q --method=HEAD http://localhost:7474 || exit 1"
+          --health-start-period "60s"
+          --health-interval "30s"
+          --health-timeout "15s"
+          --health-retries "5"
+        ports:
+          - 7474:7474
+          - 7687:7687
 
     steps:
       - uses: actions/checkout@v4
@@ -42,18 +59,3 @@ jobs:
 
       - name: Execute Integration Tests
         run: vendor/bin/phpunit --testsuite Integration
-
-    services:
-      neo4j:
-        image: neo4j:5.22
-        env:
-          NEO4J_AUTH: neo4j/testtest
-        options: >-
-          --health-cmd "wget -q --method=HEAD http://localhost:7474 || exit 1"
-          --health-start-period "60s"
-          --health-interval "30s"
-          --health-timeout "15s"
-          --health-retries "5"
-        ports:
-          - 7474:7474
-          - 7687:7687
