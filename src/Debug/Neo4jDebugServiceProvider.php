@@ -5,11 +5,15 @@ namespace Neo4jPhp\Neo4jLaravel\Debug;
 use Barryvdh\Debugbar\Facades\Debugbar;
 use Illuminate\Support\ServiceProvider;
 
+/**
+ * @api
+ */
 class Neo4jDebugServiceProvider extends ServiceProvider
 {
+    #[\Override]
     public function register(): void
     {
-        if (!$this->app->bound('debugbar')) {
+        if (! $this->app->bound('debugbar')) {
             return;
         }
 
@@ -18,6 +22,7 @@ class Neo4jDebugServiceProvider extends ServiceProvider
             $collector = new Neo4jQueryCollector();
             $collector->setTimeEnabled(config('debugbar.options.neo4j.timeline', true));
             $collector->setExplainEnabled(config('debugbar.options.neo4j.explain', true));
+
             return $collector;
         });
 
@@ -29,11 +34,10 @@ class Neo4jDebugServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (!$this->app->bound('debugbar')) {
+        if (! $this->app->bound('debugbar')) {
             return;
         }
 
-        // Add Neo4j configuration to debugbar config
         $this->mergeConfigFrom(__DIR__ . '/../../config/debugbar.php', 'debugbar');
     }
 }

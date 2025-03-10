@@ -4,21 +4,15 @@ namespace Neo4jPhp\Neo4jLaravel;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Foundation\Application;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\ServiceProvider;
-use Laudis\Neo4j\Authentication\Authenticate;
-use Laudis\Neo4j\ClientBuilder;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
-use Laudis\Neo4j\Databags\DriverConfiguration;
-use Laudis\Neo4j\Databags\SessionConfiguration;
-use Laudis\Neo4j\Databags\SslConfiguration;
-use Laudis\Neo4j\Enum\SslMode;
-use Laudis\Neo4j\Common\Uri;
 
-/** @psalm-suppress UnusedClass */
+/**
+ * @api
+ */
 final class Neo4jServiceProvider extends ServiceProvider
 {
     #[\Override]
@@ -28,55 +22,47 @@ final class Neo4jServiceProvider extends ServiceProvider
             $config = $app->make('config');
             $defaultConnection = $config->get('database.default');
             $connections = $config->get('database.connections');
-            
-            // Prepare connections for the factory
+
             $factoryConnections = [];
             $defaultFound = false;
-            
-            // Format connections for the ClientFactory
+
             foreach ($connections as $name => $connection) {
                 if (isset($connection['driver']) && $connection['driver'] === 'neo4j') {
-                    // Validate the connection
                     $this->validateConnection($name, $connection);
-                    
+
                     // Convert Laravel connection format to factory format
                     $factoryConnections[] = $this->formatConnectionForFactory($name, $connection);
-                    
+
                     // Check if default connection is configured
                     if ($name === $defaultConnection) {
                         $defaultFound = true;
                     }
                 }
             }
-            
-            if (!$defaultFound) {
+
+            if (! $defaultFound) {
                 throw new BindingResolutionException("Default Neo4j connection '$defaultConnection' is not configured or invalid");
             }
-            
-            // Get logger if available
+
             $logger = null;
             $logLevel = null;
-            
+
             if ($app->bound('log')) {
                 $logger = $app->make('log');
                 $logLevel = $config->get('database.neo4j.log_level', 'debug');
             }
-            
-            // Create the client factory
+
             $factory = new ClientFactory(
-                null, // Default driver config
-                null, // Default session config
-                null, // Default transaction config
+                null,
+                null,
+                null,
                 $factoryConnections,
                 $logLevel,
                 $logger,
-                $defaultConnection // Default driver
+                $defaultConnection
             );
-            
-            // Create the client
-            $client = $factory->create();
-            
-            return $client;
+
+            return $factory->create();
         });
 
         $this->app->singleton(DriverInterface::class, function (Application $app): DriverInterface {
@@ -93,89 +79,99 @@ final class Neo4jServiceProvider extends ServiceProvider
             return $app->make(SessionInterface::class)->beginTransaction();
         });
 
-        // Register the Neo4j connection with Laravel's database manager
         $manager = $this->app->make('db');
         $manager->extend('neo4j', function (array $config, string $name) {
             $client = $this->app->make(ClientInterface::class);
-            
-            // Store the connection name in the config
+
             $config['name'] = $name;
 
             return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
         });
+
+        $this->app->singleton('db.connection.neo4j', function (Application $app): Neo4jConnection {
+            $client = $app->make(ClientInterface::class);
+            $config = $app->make('config')->get('database.connections.neo4j');
+
+            return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
+        });
+
+        if (class_exists('Barryvdh\\Debugbar\\ServiceProvider')) {
+            $this->app->register(\Neo4jPhp\Neo4jLaravel\Debug\Neo4jDebugServiceProvider::class);
+        }
     }
 
-    public function boot(): void
-    {
-    }
-    
     /**
-     * Format a Laravel connection configuration for use with the ClientFactory
+     * @param array<string, mixed> $connection
      */
     private function formatConnectionForFactory(string $name, array $connection): array
     {
-        // Build the URL if not provided
         $url = $connection['url'] ?? sprintf(
             'bolt://%s:%s',
             $connection['host'] ?? 'localhost',
             $connection['port'] ?? 7687
         );
-        
+
         $formattedConnection = [
             'alias' => $name,
             'uri' => $url,
             'username' => $connection['username'] ?? '',
             'password' => $connection['password'] ?? '',
         ];
-        
-        // Add database if specified
+
         if (isset($connection['database'])) {
             $formattedConnection['session_config'] = [
-                'database' => $connection['database']
+                'database' => $connection['database'],
             ];
         }
-        
-        // Add authentication if custom scheme is specified
-        if (isset($connection['auth_scheme']) && $connection['auth_scheme'] !== 'basic') {
+
+        if (isset($connection['auth_scheme'])) {
             $formattedConnection['authentication'] = [
-                'scheme' => $connection['auth_scheme']
+                'scheme' => $connection['auth_scheme'],
             ];
-            
-            // Add auth specific parameters
-            if ($connection['auth_scheme'] === 'kerberos' && isset($connection['ticket'])) {
+
+            if ($connection['auth_scheme'] === 'none') {
+                // No additional configuration needed
+            } elseif ($connection['auth_scheme'] === 'kerberos') {
+                if (! isset($connection['ticket'])) {
+                    throw new BindingResolutionException('Missing ticket for Kerberos authentication');
+                }
                 $formattedConnection['authentication']['ticket'] = $connection['ticket'];
             } elseif ($connection['auth_scheme'] === 'oidc') {
                 $formattedConnection['authentication']['token'] = $connection['auth_token'] ?? $connection['token'] ?? '';
             } elseif ($connection['auth_scheme'] === 'basic') {
                 $formattedConnection['authentication']['username'] = $connection['username'] ?? '';
                 $formattedConnection['authentication']['password'] = $connection['password'] ?? '';
+            } else {
+                throw new BindingResolutionException('Unsupported authentication scheme: ' . $connection['auth_scheme']);
             }
         }
-        
-        // Add driver configuration if specified
+
         if (isset($connection['connection']) || isset($connection['ssl'])) {
             $driverConfig = [];
-            
+
             if (isset($connection['connection']['max_pool_size'])) {
                 $driverConfig['max_pool_size'] = $connection['connection']['max_pool_size'];
             }
-            
+
             if (isset($connection['connection']['timeout'])) {
                 $driverConfig['connection_timeout'] = $connection['connection']['timeout'];
             }
-            
+
             if (isset($connection['ssl'])) {
                 $driverConfig['ssl'] = $connection['ssl'];
             }
-            
-            if (!empty($driverConfig)) {
+
+            if (! empty($driverConfig)) {
                 $formattedConnection['driver_config'] = $driverConfig;
             }
         }
-        
+
         return $formattedConnection;
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function validateConnection(string $name, array $config): void
     {
         if (! isset($config['driver']) || $config['driver'] !== 'neo4j') {

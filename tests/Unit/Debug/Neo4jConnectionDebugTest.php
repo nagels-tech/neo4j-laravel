@@ -2,6 +2,7 @@
 
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
 
+use Barryvdh\Debugbar\LaravelDebugbar;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Mockery;
 use Mockery\MockInterface;
@@ -23,7 +24,8 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->client = Mockery::mock(ClientInterface::class);
         $this->collector = new Neo4jQueryCollector();
 
-        // Bind the collector to the container
+        // Bind the debugbar and collector to the container
+        $this->app->instance('debugbar', new LaravelDebugbar($this->app));
         $this->app->instance(Neo4jQueryCollector::class, $this->collector);
 
         $this->connection = new Neo4jConnection(
@@ -42,11 +44,11 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->connection->logQuery($query, $bindings, 0.1);
 
         $data = $this->collector->collect();
-        $this->assertEquals(1, $data['nb_queries']);
+        $this->assertEquals(1, $data['nb_statements']);
 
-        $queryData = $data['queries'][0];
-        $this->assertEquals($query, $queryData['query']);
-        $this->assertEquals($bindings, $queryData['parameters']);
+        $queryData = $data['statements'][0];
+        $this->assertEquals($query, $queryData['sql']);
+        $this->assertEquals($bindings, $queryData['params']);
         $this->assertEquals(0.1, $queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
     }
@@ -59,7 +61,7 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->connection->logQuery($query, $bindings);
 
         $data = $this->collector->collect();
-        $queryData = $data['queries'][0];
+        $queryData = $data['statements'][0];
         $this->assertNull($queryData['duration']);
         $this->assertNull($queryData['duration_str']);
     }
@@ -79,11 +81,11 @@ class Neo4jConnectionDebugTest extends TestCase
         $result = $this->connection->select($query, $bindings);
 
         $data = $this->collector->collect();
-        $this->assertEquals(1, $data['nb_queries']);
+        $this->assertEquals(1, $data['nb_statements']);
 
-        $queryData = $data['queries'][0];
-        $this->assertEquals($query, $queryData['query']);
-        $this->assertEquals($bindings, $queryData['parameters']);
+        $queryData = $data['statements'][0];
+        $this->assertEquals($query, $queryData['sql']);
+        $this->assertEquals($bindings, $queryData['params']);
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
     }
@@ -105,17 +107,17 @@ class Neo4jConnectionDebugTest extends TestCase
             $this->fail('Expected exception was not thrown');
         } catch (\Exception $e) {
             $this->assertEquals(
-                'Test exception (Connection: testing, SQL: MATCH (n:Test) RETURN n)',
+                'Test exception',
                 $e->getMessage()
             );
         }
 
         $data = $this->collector->collect();
-        $this->assertEquals(1, $data['nb_queries']);
+        $this->assertEquals(1, $data['nb_statements']);
 
-        $queryData = $data['queries'][0];
-        $this->assertEquals($query, $queryData['query']);
-        $this->assertEquals($bindings, $queryData['parameters']);
+        $queryData = $data['statements'][0];
+        $this->assertEquals($query, $queryData['sql']);
+        $this->assertEquals($bindings, $queryData['params']);
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
     }

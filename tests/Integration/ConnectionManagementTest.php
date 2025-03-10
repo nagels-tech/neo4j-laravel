@@ -48,11 +48,7 @@ class ConnectionManagementTest extends TestCase
         ');
 
         $this->assertCount(1, $results);
-
-        // Convert CypherMap object to expected format
-        $resultData = $results[0];
-        $resultArray = json_decode(json_encode($resultData), true);
-        $this->assertEquals('db_facade_test', $resultArray['name']);
+        $this->assertEquals('db_facade_test', $results[0][0]->get('name'));
     }
 
     protected function tearDown(): void

@@ -6,47 +6,54 @@ use DebugBar\DataCollector\DataCollector;
 use DebugBar\DataCollector\Renderable;
 use Illuminate\Support\Str;
 
+/**
+ * @api
+ */
 class Neo4jQueryCollector extends DataCollector implements Renderable
 {
     protected array $queries = [];
     protected bool $timeEnabled = false;
+
     protected bool $explainEnabled = false;
 
     public function addQuery(string $query, array $parameters = [], ?float $duration = null, ?string $connection = null): void
     {
         $this->queries[] = [
-            'query' => $query,
-            'parameters' => $parameters,
+            'sql' => $query,
+            'params' => $parameters,
             'duration' => $duration,
-            'duration_str' => $duration ? sprintf('%.2f ms', $duration) : null,
+            'duration_str' => $duration !== null ? sprintf('%.2f ms', $duration) : null,
             'connection' => $connection,
+            'is_success' => true,
+            'stmt_id' => count($this->queries),
             'stack' => $this->timeEnabled ? $this->getStackTrace() : null,
         ];
     }
 
+    #[\Override]
     public function collect(): array
     {
         $totalTime = 0;
         foreach ($this->queries as $query) {
-            if (isset($query['duration'])) {
-                $totalTime += $query['duration'];
-            }
+            $totalTime += $query['duration'] ?? 0;
         }
 
         return [
-            'nb_queries' => count($this->queries),
-            'nb_failed_queries' => 0,
+            'nb_statements' => count($this->queries),
+            'nb_failed_statements' => 0,
             'accumulated_duration' => $totalTime,
-            'accumulated_duration_str' => sprintf('%.2f ms', $totalTime),
-            'queries' => $this->queries,
+            'accumulated_duration_str' => $this->formatDuration($totalTime),
+            'statements' => $this->queries,
         ];
     }
 
+    #[\Override]
     public function getName(): string
     {
         return 'neo4j';
     }
 
+    #[\Override]
     public function getWidgets(): array
     {
         return [
@@ -57,12 +64,15 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
                 'default' => '[]',
             ],
             'neo4j:badge' => [
-                'map' => 'neo4j.nb_queries',
+                'map' => 'neo4j.nb_statements',
                 'default' => 0,
             ],
         ];
     }
 
+    /**
+     * @api
+     */
     public function reset(): void
     {
         $this->queries = [];
@@ -74,9 +84,12 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
 
         // Remove internal framework/debugbar classes
         $stack = array_filter($stack, function ($trace) {
-            return !Str::startsWith($trace['class'] ?? '', [
+            return ! Str::startsWith($trace['class'] ?? '', [
                 'DebugBar\\',
                 'Neo4jPhp\\Neo4jLaravel\\Debug\\Neo4jQueryCollector',
+                'Neo4jPhp\\Neo4jLaravel\\Neo4jConnection',
+                'Illuminate\\',
+                'Barryvdh\\',
             ]);
         });
 
@@ -101,5 +114,14 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
     public function setExplainEnabled(bool $enabled = true): void
     {
         $this->explainEnabled = $enabled;
+    }
+
+    /**
+     * @psalm-suppress MissingParamType Suppressed because parent class lacks type hints but adding them breaks inheritance
+     */
+    #[\Override]
+    public function formatDuration($seconds): string
+    {
+        return sprintf('%.2f ms', $seconds);
     }
 }

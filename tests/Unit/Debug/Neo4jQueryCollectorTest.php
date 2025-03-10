@@ -31,17 +31,19 @@ class Neo4jQueryCollectorTest extends TestCase
 
         $data = $this->collector->collect();
 
-        $this->assertEquals(1, $data['nb_queries']);
+        $this->assertEquals(1, $data['nb_statements']);
         $this->assertEquals($duration, $data['accumulated_duration']);
         $this->assertEquals('0.10 ms', $data['accumulated_duration_str']);
 
-        $queryData = $data['queries'][0];
-        $this->assertEquals($query, $queryData['query']);
-        $this->assertEquals($parameters, $queryData['parameters']);
+        $queryData = $data['statements'][0];
+        $this->assertEquals($query, $queryData['sql']);
+        $this->assertEquals($parameters, $queryData['params']);
         $this->assertEquals($duration, $queryData['duration']);
         $this->assertEquals('0.10 ms', $queryData['duration_str']);
         $this->assertEquals($connection, $queryData['connection']);
         $this->assertNull($queryData['stack']); // Stack trace is disabled by default
+        $this->assertTrue($queryData['is_success']);
+        $this->assertEquals(0, $queryData['stmt_id']);
     }
 
     public function testStackTraceWhenEnabled(): void
@@ -52,7 +54,7 @@ class Neo4jQueryCollectorTest extends TestCase
         $this->addQueryForStackTest();
 
         $data = $this->collector->collect();
-        $queryData = $data['queries'][0];
+        $queryData = $data['statements'][0];
 
         $this->assertIsArray($queryData['stack']);
         $this->assertNotEmpty($queryData['stack']);
@@ -77,7 +79,7 @@ class Neo4jQueryCollectorTest extends TestCase
 
         $data = $this->collector->collect();
 
-        $this->assertEquals(2, $data['nb_queries']);
+        $this->assertEquals(2, $data['nb_statements']);
         $this->assertEqualsWithDelta(0.3, $data['accumulated_duration'], 0.0001);
         $this->assertEquals('0.30 ms', $data['accumulated_duration_str']);
     }
@@ -89,8 +91,8 @@ class Neo4jQueryCollectorTest extends TestCase
 
         $data = $this->collector->collect();
 
-        $this->assertEquals(0, $data['nb_queries']);
-        $this->assertEmpty($data['queries']);
+        $this->assertEquals(0, $data['nb_statements']);
+        $this->assertEmpty($data['statements']);
     }
 
     public function testWidgets(): void
@@ -105,7 +107,7 @@ class Neo4jQueryCollectorTest extends TestCase
         $this->assertEquals('neo4j', $widgets['neo4j']['map']);
         $this->assertEquals('[]', $widgets['neo4j']['default']);
 
-        $this->assertEquals('neo4j.nb_queries', $widgets['neo4j:badge']['map']);
+        $this->assertEquals('neo4j.nb_statements', $widgets['neo4j:badge']['map']);
         $this->assertEquals(0, $widgets['neo4j:badge']['default']);
     }
 }

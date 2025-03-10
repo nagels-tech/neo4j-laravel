@@ -6,12 +6,12 @@ use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
+use Illuminate\Support\Facades\Log;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
-use PDO;
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Illuminate\Support\Facades\App;
+use PDO;
 
 /**
  * @psalm-suppress PropertyNotSetInConstructor
@@ -21,7 +21,6 @@ final class Neo4jConnection extends Connection
     private ClientInterface $client;
     private ?UnmanagedTransactionInterface $transaction = null;
     private ?PDO $pdoMock = null;
-    private ?Neo4jQueryCollector $queryCollector = null;
 
     public function __construct(
         ClientInterface $client,
@@ -30,15 +29,11 @@ final class Neo4jConnection extends Connection
         array $config = []
     ) {
         $this->client = $client;
-        // Use closure as PDO replacement since we can't pass null here
         parent::__construct(function () {
             return null;
         }, $database, $tablePrefix, $config);
 
-        // Set up debugbar collector if available
-        if (App::bound(Neo4jQueryCollector::class)) {
-            $this->queryCollector = App::make(Neo4jQueryCollector::class);
-        }
+        $this->enableQueryLog();
     }
 
     /**
@@ -57,7 +52,9 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function beginTransaction(): TransactionInterface
     {
-        return $this->client->beginTransaction();
+        $this->transaction = $this->client->beginTransaction();
+
+        return $this->transaction;
     }
 
     /**
@@ -106,52 +103,58 @@ final class Neo4jConnection extends Connection
     /**
      * Run a Cypher statement and return the result.
      *
-     * @param string $query Cypher query string
-     * @param array<string, mixed> $parameters The parameters for the Cypher query
-     * @return mixed The query result
-     *
-     * @psalm-suppress PossiblyUnusedMethod
+     * @api
      */
     public function runCypher(string $query, array $parameters = []): mixed
     {
-        /** @var array<string, mixed> $parameters */
-        return $this->transaction
-            ? $this->transaction->run($query, $parameters)
-            : $this->client->run($query, $parameters);
+        $start = microtime(true);
+
+        try {
+            /** @var array<string, mixed> $parameters */
+            $result = $this->transaction
+                ? $this->transaction->run($query, $parameters)
+                : $this->client->run($query, $parameters);
+
+            $duration = microtime(true) - $start;
+            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
+
+            return $result;
+        } catch (\Exception $e) {
+            $duration = microtime(true) - $start;
+            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
+
+            throw $e;
+        }
     }
 
     /**
      * Run a Cypher statement in write mode.
-     *
-     * @param string $query Cypher query string
-     * @param array<string, mixed> $parameters The parameters for the Cypher query
-     * @return mixed The query result
      */
     public function write(string $query, array $parameters = []): mixed
     {
-        /** @var array<string, mixed> $parameters */
-        return $this->client->writeTransaction(
-            static function (TransactionInterface $tx) use ($query, $parameters): mixed {
-                return $tx->run($query, $parameters);
-            }
-        );
+        return $this->runQueryCallback($query, $parameters, function () use ($query, $parameters): mixed {
+            /** @var array<string, mixed> $parameters */
+            return $this->client->writeTransaction(
+                function (TransactionInterface $tx) use ($query, $parameters): mixed {
+                    return $tx->run($query, $parameters);
+                }
+            );
+        });
     }
 
     /**
      * Run a Cypher statement in read mode.
-     *
-     * @param string $query Cypher query string
-     * @param array<string, mixed> $parameters The parameters for the Cypher query
-     * @return mixed The query result
      */
     public function read(string $query, array $parameters = []): mixed
     {
-        /** @var array<string, mixed> $parameters */
-        return $this->client->readTransaction(
-            static function (TransactionInterface $tx) use ($query, $parameters): mixed {
-                return $tx->run($query, $parameters);
-            }
-        );
+        return $this->runQueryCallback($query, $parameters, function () use ($query, $parameters): mixed {
+            /** @var array<string, mixed> $parameters */
+            return $this->client->readTransaction(
+                function (TransactionInterface $tx) use ($query, $parameters): mixed {
+                    return $tx->run($query, $parameters);
+                }
+            );
+        });
     }
 
     /**
@@ -164,9 +167,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function getPdo()
     {
-        // Create a mock PDO object to satisfy type checks
         if ($this->pdoMock === null) {
-            // Create a mock PDO using SQLite memory
             $this->pdoMock = new PDO('sqlite::memory:');
         }
 
@@ -198,6 +199,7 @@ final class Neo4jConnection extends Connection
     /**
      * Get the database name.
      */
+    #[\Override]
     public function getDatabaseName(): string
     {
         return $this->database;
@@ -208,6 +210,7 @@ final class Neo4jConnection extends Connection
      *
      * @param string $database The database name to switch to
      * @return self Returns this connection for chaining
+     * @api
      */
     public function useDatabase(string $database): self
     {
@@ -223,11 +226,9 @@ final class Neo4jConnection extends Connection
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
         try {
-            $result = $this->runQueryCallback($query, $bindings, function () use ($query, $bindings) {
-                $result = $this->read($query, $bindings);
-                return is_array($result) ? $result : [$result];
-            });
-            return $result;
+            $result = $this->read($query, $bindings);
+
+            return is_array($result) ? $result : [$result];
         } catch (\Exception $e) {
             throw $e;
         }
@@ -314,7 +315,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     protected function getDefaultQueryGrammar()
     {
-        return $this->withTablePrefix(new Neo4jQueryGrammar());
+        return new Neo4jQueryGrammar();
     }
 
     /**
@@ -448,48 +449,63 @@ final class Neo4jConnection extends Connection
 
     /**
      * Get the connection configuration.
-     * 
-     * @param string|null $name The configuration option name or null for all configuration
+     *
+     * @param string|null $option The configuration option name or null for all configuration
      * @return mixed The configuration value or all configuration
      */
-    public function getConfig($name = null)
+    #[\Override]
+    public function getConfig($option = null)
     {
-        if ($name) {
-            return $this->config[$name] ?? null;
+        if ($option !== null) {
+            return $this->config[$option] ?? null;
         }
 
         return $this->config;
     }
 
-    public function logQuery($query, $bindings, $time = null): void
-    {
-        // Call parent logging
-        parent::logQuery($query, $bindings, $time);
-
-        // Add to debugbar if available
-        if ($this->queryCollector !== null) {
-            $this->queryCollector->addQuery(
-                $query,
-                $bindings,
-                $time,
-                $this->getName()
-            );
-        }
-    }
-
+    #[\Override]
     protected function runQueryCallback($query, $bindings, \Closure $callback)
     {
         $start = microtime(true);
 
         try {
-            $result = parent::runQueryCallback($query, $bindings, $callback);
-
-            $this->logQuery($query, $bindings, microtime(true) - $start);
+            $result = $callback();
+            $duration = microtime(true) - $start;
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
 
             return $result;
         } catch (\Exception $e) {
-            $this->logQuery($query, $bindings, microtime(true) - $start);
+            $duration = microtime(true) - $start;
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
+
             throw $e;
+        }
+    }
+
+    /**
+     * Log a query in the connection's query log.
+     *
+     * @param  string  $query
+     * @param  array  $bindings
+     * @param  float|null  $time
+     * @return void
+     */
+    #[\Override]
+    public function logQuery($query, $bindings, $time = null)
+    {
+        if ($this->loggingQueries) {
+            $this->queryLog[] = [
+                'query' => $query,
+                'bindings' => $bindings,
+                'time' => $time,
+                'connection_name' => $this->getName(),
+                'driver' => 'neo4j',
+                'database' => $this->getDatabaseName(),
+            ];
+        }
+
+        if (app()->bound('debugbar') && app()->bound(Neo4jQueryCollector::class)) {
+            app(Neo4jQueryCollector::class)->addQuery($query, $bindings, $time, $this->getName());
         }
     }
 }

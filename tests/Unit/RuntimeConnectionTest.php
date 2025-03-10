@@ -39,18 +39,18 @@ class RuntimeConnectionTest extends TestCase
             'password' => 'runtime_password',
             'database' => 'runtime_db',
         ]);
-        
+
         // Get the connection
         $connection = DB::connection('neo4j_runtime');
-        
+
         // Verify the connection was created with correct config
         $this->assertInstanceOf(Neo4jConnection::class, $connection);
-        
+
         // Check the configuration
         $this->assertEquals('neo4j_runtime', $connection->getName());
         $this->assertEquals('runtime_db', $connection->getDatabaseName());
     }
-    
+
     public function testRuntimeConnectionUsesCorrectCredentials(): void
     {
         // Add a new connection at runtime
@@ -62,12 +62,12 @@ class RuntimeConnectionTest extends TestCase
             'password' => 'runtime_pass',
             'database' => 'neo4j',
         ]);
-        
+
         // Get the connection
         $connection = DB::connection('neo4j_credentials');
-        
+
         // Verify the connection has the right credentials
         $this->assertEquals('runtime_user', $connection->getConfig('username'));
         $this->assertEquals('runtime_pass', $connection->getConfig('password'));
     }
-} 
+}
