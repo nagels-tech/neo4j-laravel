@@ -33,7 +33,8 @@
       "@cs",
       "@psalm"
     ],
-    "test": "vendor/bin/phpunit"
+    "test": "vendor/bin/phpunit",
+    "ci-laravel-install-version": "./.github/scripts/setup-laravel-env.bash"
   },
   "extra": {
     "laravel": {

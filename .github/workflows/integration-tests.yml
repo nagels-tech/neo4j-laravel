@@ -21,6 +21,28 @@ jobs:
         php: ["8.2", "8.3", "8.4"]
         laravel: ["11.0", "12.0"]
 
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl, exif, iconv
+          coverage: none
+
+      - name: Make Laravel version script executable
+        run: chmod +x ./.github/scripts/setup-laravel-env.bash
+
+      - name: Override Laravel version
+        run: composer run ci-laravel-install-version ${{ matrix.laravel }}
+
+      - name: Execute Integration Tests
+        run: vendor/bin/phpunit --testsuite Integration
+
     services:
       neo4j:
         image: neo4j:5.22
@@ -35,24 +57,3 @@ jobs:
         ports:
           - 7474:7474
           - 7687:7687
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate composer.json
-        run: composer validate --strict
-
-      - name: Setup PHP ${{ matrix.php }}
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl, exif, iconv
-          coverage: none
-
-      - name: Install dependencies
-        run: |
-          composer require "laravel/framework:^${{ matrix.laravel }}" --no-interaction --no-update
-          composer update --prefer-dist --no-interaction --no-progress
-
-      - name: Execute Integration Tests
-        run: vendor/bin/phpunit --testsuite Integration

@@ -31,10 +31,11 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl, exif, iconv
           coverage: none
 
-      - name: Install dependencies
-        run: |
-          composer require "laravel/framework:^${{ matrix.laravel }}" --no-interaction --no-update
-          composer update --prefer-dist --no-interaction --no-progress
+      - name: Make Laravel version script executable
+        run: chmod +x ./.github/scripts/setup-laravel-env.bash
+
+      - name: Override Laravel version
+        run: composer run ci-laravel-install-version ${{ matrix.laravel }}
 
       - name: Execute Unit Tests
         run: vendor/bin/phpunit --testsuite Unit
