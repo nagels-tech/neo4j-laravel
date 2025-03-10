@@ -1,6 +1,6 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel;
+namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Foundation\Application;
@@ -9,6 +9,7 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
+use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
 
 /**
  * @api
@@ -96,7 +97,7 @@ final class Neo4jServiceProvider extends ServiceProvider
         });
 
         if (class_exists('Barryvdh\\Debugbar\\ServiceProvider')) {
-            $this->app->register(\Neo4jPhp\Neo4jLaravel\Debug\Neo4jDebugServiceProvider::class);
+            $this->app->register(Neo4jDebugServiceProvider::class);
         }
     }
 

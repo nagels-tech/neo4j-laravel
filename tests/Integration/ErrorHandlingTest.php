@@ -1,9 +1,9 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
+namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Laudis\Neo4j\Contracts\ClientInterface;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4j\Neo4jLaravel\Tests\TestCase;
 
 class ErrorHandlingTest extends TestCase
 {

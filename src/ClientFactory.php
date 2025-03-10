@@ -1,6 +1,6 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel;
+namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Laudis\Neo4j\Authentication\Authenticate;

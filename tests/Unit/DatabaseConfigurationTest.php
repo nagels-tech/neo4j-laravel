@@ -2,7 +2,7 @@
 
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 class DatabaseConfigurationTest extends TestCase

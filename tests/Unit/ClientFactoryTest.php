@@ -3,8 +3,8 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
 use Laudis\Neo4j\Contracts\ClientInterface;
-use Neo4jPhp\Neo4jLaravel\ClientFactory;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\ClientFactory;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Psr\Log\LoggerInterface;
 

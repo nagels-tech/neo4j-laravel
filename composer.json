@@ -5,12 +5,12 @@
   "license": "MIT",
   "autoload": {
     "psr-4": {
-      "Neo4jPhp\\Neo4jLaravel\\": "src/"
+      "Neo4j\\Neo4jLaravel\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Neo4jPhp\\Neo4jLaravel\\Tests\\": "tests/"
+      "Neo4j\\Neo4jLaravel\\Tests\\": "tests/"
     }
   },
   "require": {
@@ -39,7 +39,7 @@
   "extra": {
     "laravel": {
       "providers": [
-        "Neo4jPhp\\Neo4jLaravel\\Neo4jServiceProvider"
+        "Neo4j\\Neo4jLaravel\\Neo4jServiceProvider"
       ]
     }
   },

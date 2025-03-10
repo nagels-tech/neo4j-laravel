@@ -1,11 +1,11 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
+namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Illuminate\Support\Facades\DB;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4j\Neo4jLaravel\Tests\TestCase;
 
 class ConnectionManagementTest extends TestCase
 {

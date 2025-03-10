@@ -1,6 +1,6 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel;
+namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
-use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
 
 /**

@@ -1,10 +1,10 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
+namespace Neo4j\Neo4jLaravel\Tests\Unit\Debug;
 
 use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
-use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 class Neo4jQueryCollectorTest extends TestCase

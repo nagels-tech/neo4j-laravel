@@ -1,6 +1,6 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Debug;
+namespace Neo4j\Neo4jLaravel\Debug;
 
 use DebugBar\DataCollector\DataCollector;
 use DebugBar\DataCollector\Renderable;

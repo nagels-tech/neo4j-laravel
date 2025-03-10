@@ -1,12 +1,12 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
+namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
 use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Illuminate\Support\Facades\DB;
-use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Neo4j\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jDebugbarTest extends TestCase
 {

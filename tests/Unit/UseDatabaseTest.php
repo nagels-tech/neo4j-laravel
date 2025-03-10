@@ -1,10 +1,10 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
+namespace Neo4j\Neo4jLaravel\Tests\Unit;
 
 use Illuminate\Support\Facades\DB;
-use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Neo4jConnection;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 class UseDatabaseTest extends TestCase

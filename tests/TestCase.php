@@ -1,8 +1,8 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests;
+namespace Neo4j\Neo4jLaravel\Tests;
 
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase

@@ -1,15 +1,15 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
+namespace Neo4j\Neo4jLaravel\Tests\Unit\Debug;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
 use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Mockery;
 use Mockery\MockInterface;
-use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Neo4j\Neo4jLaravel\Neo4jConnection;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 class Neo4jConnectionDebugTest extends TestCase

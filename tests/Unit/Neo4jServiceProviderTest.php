@@ -1,10 +1,10 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
+namespace Neo4j\Neo4jLaravel\Tests\Unit;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Laudis\Neo4j\Contracts\ClientInterface;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
 class Neo4jServiceProviderTest extends OrchestraTestCase
