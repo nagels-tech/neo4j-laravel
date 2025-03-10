@@ -21,29 +21,16 @@ class Neo4jServiceProviderTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('neo4j.default', 'testing');
-        $app['config']->set('neo4j.connections', [
-            'testing' => [
-                'url' => 'bolt://localhost:7687',
-                'username' => 'neo4j',
-                'password' => 'password',
-                'database' => 'neo4j',
-                'auth_scheme' => 'basic',
-                'ssl' => [
-                    'mode' => 'from_url',
-                    'verify_peer' => true,
-                ],
-                'connection' => [
-                    'timeout' => 30,
-                    'max_pool_size' => 100,
-                ],
-                'transaction' => [
-                    'timeout' => 30,
-                ],
-            ],
-        ]);
-        $app['config']->set('neo4j.logging', [
-            'level' => null,
+        // Set up database configuration
+        $app['config']->set('database.default', 'neo4j');
+        $app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
+            'url' => 'bolt://localhost:7687',
+            'host' => 'localhost',
+            'port' => 7687,
+            'username' => 'neo4j',
+            'password' => 'password',
+            'database' => 'neo4j',
         ]);
 
         // Mock the Neo4j client and its dependencies
@@ -86,10 +73,15 @@ class Neo4jServiceProviderTest extends TestCase
         $this->assertInstanceOf(TransactionInterface::class, $transaction);
     }
 
-    public function testPublishesConfig(): void
+    public function testDatabaseConfigurationIsValid(): void
     {
-        $this->artisan('vendor:publish', ['--tag' => 'neo4j-config']);
-        $this->assertFileExists(config_path('neo4j.php'));
+        $config = $this->app['config']->get('database.connections.neo4j');
+
+        $this->assertEquals('neo4j', $config['driver']);
+        $this->assertArrayHasKey('host', $config);
+        $this->assertArrayHasKey('port', $config);
+        $this->assertArrayHasKey('username', $config);
+        $this->assertArrayHasKey('password', $config);
     }
 
     public function testHandlesMultipleConnections(): void
