@@ -2,7 +2,6 @@
 
 namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
 
-use Exception;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
 

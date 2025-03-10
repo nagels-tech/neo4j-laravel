@@ -182,7 +182,12 @@ final class Neo4jServiceProvider extends ServiceProvider
     private function validateConnection(string $name, array $config): void
     {
         if (! isset($config['driver']) || $config['driver'] !== 'neo4j') {
-            throw new BindingResolutionException("Invalid driver for Neo4j connection: {$name}");
+            throw new BindingResolutionException(
+                sprintf(
+                    'Invalid database driver: %s',
+                    $config['driver'] ?? 'none'
+                )
+            );
         }
 
         if (! isset($config['url']) && (! isset($config['host']) || ! isset($config['port']))) {

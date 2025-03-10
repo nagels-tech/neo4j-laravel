@@ -3,12 +3,14 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
+use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Mockery;
 use Mockery\MockInterface;
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Orchestra\Testbench\TestCase;
 
 class Neo4jConnectionDebugTest extends TestCase
 {
@@ -16,6 +18,19 @@ class Neo4jConnectionDebugTest extends TestCase
     private Neo4jQueryCollector $collector;
     /** @var ClientInterface&MockInterface */
     private ClientInterface $client;
+
+    protected function getPackageProviders($app): array
+    {
+        return [
+            Neo4jServiceProvider::class,
+            DebugbarServiceProvider::class,
+        ];
+    }
+
+    protected function defineEnvironment($app): void
+    {
+        $app['config']->set('debugbar.collectors.neo4j', true);
+    }
 
     protected function setUp(): void
     {
@@ -30,7 +45,7 @@ class Neo4jConnectionDebugTest extends TestCase
 
         $this->connection = new Neo4jConnection(
             $this->client,
-            env('NEO4J_DATABASE', 'neo4j'),
+            'neo4j',
             '',
             ['name' => 'testing']
         );

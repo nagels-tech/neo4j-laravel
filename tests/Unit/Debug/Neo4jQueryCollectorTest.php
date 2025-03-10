@@ -2,16 +2,32 @@
 
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit\Debug;
 
+use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Neo4jPhp\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Orchestra\Testbench\TestCase;
 
 class Neo4jQueryCollectorTest extends TestCase
 {
     private Neo4jQueryCollector $collector;
 
+    protected function getPackageProviders($app): array
+    {
+        return [
+            Neo4jServiceProvider::class,
+            DebugbarServiceProvider::class,
+        ];
+    }
+
+    protected function defineEnvironment($app): void
+    {
+        $app['config']->set('debugbar.collectors.neo4j', true);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
+
         $this->collector = new Neo4jQueryCollector();
     }
 

@@ -2,41 +2,48 @@
 
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Orchestra\Testbench\TestCase;
 
 class DatabaseConfigurationTest extends TestCase
 {
+    protected function getPackageProviders($app): array
+    {
+        return [Neo4jServiceProvider::class];
+    }
+
     protected function defineEnvironment($app): void
     {
-        parent::defineEnvironment($app);
+        $app['config']->set('database.default', 'neo4j');
 
-        // Add additional configuration for the default connection
-        $config = $app['config']->get('database.connections.neo4j');
-        $config['ssl'] = [
-            'mode' => 'from_url',
-            'verify_peer' => true,
-        ];
-        $config['connection'] = [
-            'max_pool_size' => 100,
-            'timeout' => 30,
-        ];
-        $config['transaction'] = [
-            'timeout' => 30,
-        ];
-        $app['config']->set('database.connections.neo4j', $config);
+        // Set up default connection
+        $app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
+            'url' => 'bolt://localhost:7687',
+            'username' => 'neo4j',
+            'password' => 'password',
+            'database' => 'neo4j',
+            'ssl' => [
+                'mode' => 'from_url',
+                'verify_peer' => true,
+            ],
+            'connection' => [
+                'max_pool_size' => 100,
+                'timeout' => 30,
+            ],
+            'transaction' => [
+                'timeout' => 30,
+            ],
+        ]);
 
         // Set up a second connection for testing multiple connections
         $app['config']->set('database.connections.neo4j_secondary', [
             'driver' => 'neo4j',
             'name' => 'secondary',
-            'url' => sprintf(
-                'bolt://%s:%s',
-                env('NEO4J_HOST', 'neo4j'),
-                env('NEO4J_PORT', '7688')
-            ),
+            'url' => 'bolt://localhost:7688',
             'database' => 'other-db',
-            'username' => env('NEO4J_USERNAME', 'neo4j'),
-            'password' => env('NEO4J_PASSWORD', 'testtest'),
+            'username' => 'neo4j',
+            'password' => 'password',
             'auth_scheme' => 'kerberos',
             'ticket' => 'kerberos-ticket',
             'ssl' => [
@@ -85,19 +92,15 @@ class DatabaseConfigurationTest extends TestCase
     public function testConnectionUrlIsConstructedCorrectly(): void
     {
         $config = config('database.connections.neo4j');
-        $expectedUrl = sprintf(
-            'bolt://%s:%s',
-            env('NEO4J_HOST', 'neo4j'),
-            env('NEO4J_PORT', '7687')
-        );
+        $expectedUrl = 'bolt://localhost:7687';
         $this->assertEquals($expectedUrl, $config['url']);
     }
 
     public function testAuthenticationConfiguration(): void
     {
         $config = config('database.connections.neo4j');
-        $this->assertEquals(env('NEO4J_USERNAME', 'neo4j'), $config['username']);
-        $this->assertEquals(env('NEO4J_PASSWORD', 'testtest'), $config['password']);
+        $this->assertEquals('neo4j', $config['username']);
+        $this->assertEquals('password', $config['password']);
     }
 
     public function testSslConfiguration(): void
@@ -128,12 +131,7 @@ class DatabaseConfigurationTest extends TestCase
 
         $this->assertEquals('neo4j', $secondary['driver']);
         $this->assertEquals('secondary', $secondary['name']);
-        $expectedUrl = sprintf(
-            'bolt://%s:%s',
-            env('NEO4J_HOST', 'neo4j'),
-            env('NEO4J_PORT', '7688')
-        );
-        $this->assertEquals($expectedUrl, $secondary['url']);
+        $this->assertEquals('bolt://localhost:7688', $secondary['url']);
         $this->assertEquals('other-db', $secondary['database']);
         $this->assertEquals('kerberos', $secondary['auth_scheme']);
         $this->assertEquals('kerberos-ticket', $secondary['ticket']);
@@ -148,8 +146,8 @@ class DatabaseConfigurationTest extends TestCase
     {
         // Test basic auth (default connection)
         $basicAuth = config('database.connections.neo4j');
-        $this->assertEquals(env('NEO4J_USERNAME', 'neo4j'), $basicAuth['username']);
-        $this->assertEquals(env('NEO4J_PASSWORD', 'testtest'), $basicAuth['password']);
+        $this->assertEquals('neo4j', $basicAuth['username']);
+        $this->assertEquals('password', $basicAuth['password']);
 
         // Test kerberos auth
         $kerberosAuth = config('database.connections.neo4j_secondary');

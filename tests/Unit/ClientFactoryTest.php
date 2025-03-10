@@ -4,7 +4,8 @@ namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Neo4jPhp\Neo4jLaravel\ClientFactory;
-use Neo4jPhp\Neo4jLaravel\Tests\TestCase;
+use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Orchestra\Testbench\TestCase;
 use Psr\Log\LoggerInterface;
 
 class ClientFactoryTest extends TestCase
@@ -28,6 +29,11 @@ class ClientFactoryTest extends TestCase
 
     private array $connections;
 
+    protected function getPackageProviders($app): array
+    {
+        return [Neo4jServiceProvider::class];
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -35,17 +41,13 @@ class ClientFactoryTest extends TestCase
         $this->connections = [
             [
                 'alias' => 'default',
-                'uri' => sprintf(
-                    'bolt://%s:%s',
-                    env('NEO4J_HOST', 'neo4j'),
-                    env('NEO4J_PORT', '7687')
-                ),
-                'username' => env('NEO4J_USERNAME', 'neo4j'),
-                'password' => env('NEO4J_PASSWORD', 'testtest'),
+                'uri' => 'bolt://localhost:7687',
+                'username' => 'neo4j',
+                'password' => 'password',
                 'authentication' => [
                     'scheme' => 'basic',
-                    'username' => env('NEO4J_USERNAME', 'neo4j'),
-                    'password' => env('NEO4J_PASSWORD', 'testtest'),
+                    'username' => 'neo4j',
+                    'password' => 'password',
                 ],
                 'driver_config' => [
                     'connection_timeout' => 30,
@@ -56,7 +58,7 @@ class ClientFactoryTest extends TestCase
                     ],
                 ],
                 'session_config' => [
-                    'database' => env('NEO4J_DATABASE', 'neo4j'),
+                    'database' => 'neo4j',
                 ],
                 'transaction_config' => [
                     'timeout' => 30,
@@ -102,17 +104,13 @@ class ClientFactoryTest extends TestCase
         $connections = [
             [
                 'alias' => 'default',
-                'uri' => sprintf(
-                    'bolt://%s:%s',
-                    env('NEO4J_HOST', 'neo4j'),
-                    env('NEO4J_PORT', '7687')
-                ),
-                'username' => env('NEO4J_USERNAME', 'neo4j'),
-                'password' => env('NEO4J_PASSWORD', 'testtest'),
+                'uri' => 'bolt://localhost:7687',
+                'username' => 'neo4j',
+                'password' => 'password',
                 'authentication' => [
                     'scheme' => 'basic',
-                    'username' => env('NEO4J_USERNAME', 'neo4j'),
-                    'password' => env('NEO4J_PASSWORD', 'testtest'),
+                    'username' => 'neo4j',
+                    'password' => 'password',
                 ],
                 'driver_config' => [
                     'connection_timeout' => 30,
@@ -123,7 +121,7 @@ class ClientFactoryTest extends TestCase
                     ],
                 ],
                 'session_config' => [
-                    'database' => env('NEO4J_DATABASE', 'neo4j'),
+                    'database' => 'neo4j',
                 ],
                 'transaction_config' => [
                     'timeout' => 30,
@@ -131,13 +129,9 @@ class ClientFactoryTest extends TestCase
             ],
             [
                 'alias' => 'secondary',
-                'uri' => sprintf(
-                    'bolt://%s:%s',
-                    env('NEO4J_HOST', 'neo4j'),
-                    env('NEO4J_PORT', '7687')
-                ),
-                'username' => env('NEO4J_USERNAME', 'neo4j'),
-                'password' => env('NEO4J_PASSWORD', 'testtest'),
+                'uri' => 'bolt://localhost:7688',
+                'username' => 'neo4j',
+                'password' => 'password',
                 'authentication' => [
                     'scheme' => 'kerberos',
                     'ticket' => 'kerberos-ticket',
@@ -177,13 +171,9 @@ class ClientFactoryTest extends TestCase
         $connections = [
             [
                 'alias' => 'default',
-                'uri' => sprintf(
-                    'bolt://%s:%s',
-                    env('NEO4J_HOST', 'neo4j'),
-                    env('NEO4J_PORT', '7687')
-                ),
-                'username' => env('NEO4J_USERNAME', 'neo4j'),
-                'password' => env('NEO4J_PASSWORD', 'testtest'),
+                'uri' => 'bolt://localhost:7687',
+                'username' => 'neo4j',
+                'password' => 'password',
                 'authentication' => [
                     'scheme' => 'oidc',
                     'token' => 'oidc-token',
@@ -209,13 +199,9 @@ class ClientFactoryTest extends TestCase
         $connections = [
             [
                 'alias' => 'default',
-                'uri' => sprintf(
-                    'bolt://%s:%s',
-                    env('NEO4J_HOST', 'neo4j'),
-                    env('NEO4J_PORT', '7687')
-                ),
-                'username' => env('NEO4J_USERNAME', 'neo4j'),
-                'password' => env('NEO4J_PASSWORD', 'testtest'),
+                'uri' => 'bolt://localhost:7687',
+                'username' => 'neo4j',
+                'password' => 'password',
                 'authentication' => [
                     'scheme' => 'none',
                 ],
@@ -243,13 +229,9 @@ class ClientFactoryTest extends TestCase
             $connections = [
                 [
                     'alias' => 'default',
-                    'uri' => sprintf(
-                        'bolt://%s:%s',
-                        env('NEO4J_HOST', 'neo4j'),
-                        env('NEO4J_PORT', '7687')
-                    ),
-                    'username' => env('NEO4J_USERNAME', 'neo4j'),
-                    'password' => env('NEO4J_PASSWORD', 'testtest'),
+                    'uri' => 'bolt://localhost:7687',
+                    'username' => 'neo4j',
+                    'password' => 'password',
                     'driver_config' => [
                         'ssl' => [
                             'mode' => $mode,
