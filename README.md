@@ -2,6 +2,14 @@
 
 A Laravel package that provides seamless integration with Neo4j graph database.
 
+> [!WARNING]
+> Current Limitations:
+>
+> - Laravel Authentication is not supported as it relies on Eloquent ORM
+> - Session driver must be set to `file` or other non-database drivers (e.g., `SESSION_DRIVER=file` in .env)
+>
+> These features will be added in future releases.
+
 ## Installation
 
 ```bash
