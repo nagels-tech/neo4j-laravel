@@ -4,13 +4,14 @@ networks:
 
 services:
     php:
-        user: root:${UID-1000}:${GID-1000}
+        user: ${UID-1000}:${GID-1000}
         build:
             context: .
         ports:
-            - ${DOCKER_HOST_APP_PORT:-8000}:80
+            - 80:${DOCKER_HOST_APP_PORT:-8000}
         volumes:
             - ./:/opt/project
+        command: "php ./example-app/artisan serve --host=0.0.0.0 --port=8000"
         environment:
             - NEO4J_HOST=neo4j
             - NEO4J_DATABASE=neo4j
@@ -23,25 +24,6 @@ services:
             - "host.docker.internal:host-gateway"
         networks:
             - neo4j-laravel
-
-    laravel-example-app:
-        build:
-            context: .
-            dockerfile: Dockerfile.laravel
-        ports:
-            - ${DOCKER_HOST_LARAVEL_PORT:-8080}:8000
-        environment:
-            - NEO4J_HOST=neo4j
-            - NEO4J_DATABASE=neo4j
-            - NEO4J_PORT=7687
-            - NEO4J_USERNAME=neo4j
-            - NEO4J_PASSWORD=testtest
-            - XDEBUG_CONFIG="client_host=host.docker.internal log=/tmp/xdebug.log"
-        extra_hosts:
-            - "host.docker.internal:host-gateway"
-        networks:
-            - neo4j-laravel
-
     neo4j:
         environment:
             - NEO4J_AUTH=neo4j/testtest
