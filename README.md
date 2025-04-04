@@ -1,14 +1,22 @@
 # Neo4j Laravel
 
-A Laravel package that provides seamless integration with Neo4j graph database.
+A Laravel package that provides integration with Neo4j graph database.
 
 > [!WARNING]
-> Current Limitations:
+> Database Configuration Recommendations:
 >
-> - Laravel Authentication is not supported as it relies on Eloquent ORM
-> - Session driver must be set to `file` or other non-database drivers (e.g., `SESSION_DRIVER=file` in .env)
+> Laravel uses the default database connection for authentication, sessions, and other core features. While you can use Neo4j as your default database, we recommend:
 >
-> These features will be added in future releases.
+> 1. Use a traditional database (SQLite, MySQL, PostgreSQL, etc.) as your default database connection
+> 2. Use Neo4j as a secondary connection for your graph data
+>
+> If you choose to use Neo4j as your default database:
+>
+> - Set `SESSION_DRIVER=file` in your .env file
+> - Laravel Authentication will not work as it relies on Eloquent ORM
+> - Other features that depend on the default database connection may be affected
+>
+> These limitations will be addressed in future releases.
 
 ## Installation
 
