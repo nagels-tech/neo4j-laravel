@@ -35,7 +35,7 @@ Route::delete('/users/{email}', [UserController::class, 'destroy']);
 // Movie routes
 Route::get('/movies', [MovieController::class, 'index']);
 Route::post('/movies', [MovieController::class, 'store']);
+Route::post('/movies/actors', [MovieController::class, 'addActor']);
 Route::get('/movies/{title}', [MovieController::class, 'show']);
 Route::delete('/movies/{title}', [MovieController::class, 'destroy']);
-Route::post('/movies/actors', [MovieController::class, 'addActor']);
 Route::get('/movies/{title}/similar', [MovieController::class, 'findSimilar']);
