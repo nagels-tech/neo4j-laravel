@@ -45,21 +45,13 @@ final class Neo4jServiceProvider extends ServiceProvider
                 throw new BindingResolutionException("Default Neo4j connection '$defaultConnection' is not configured or invalid");
             }
 
-            $logger = null;
-            $logLevel = null;
-
-            if ($app->bound('log')) {
-                $logger = $app->make('log');
-                $logLevel = $config->get('database.neo4j.log_level', 'debug');
-            }
-
             $factory = new ClientFactory(
                 null,
                 null,
                 null,
                 $factoryConnections,
-                $logLevel,
-                $logger,
+                null,
+                null,
                 $defaultConnection
             );
 
