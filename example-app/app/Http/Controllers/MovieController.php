@@ -4,23 +4,22 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Laudis\Neo4j\Contracts\SessionInterface;
-use Laudis\Neo4j\Contracts\TransactionInterface;
+use Illuminate\Support\Facades\DB;
 
 class MovieController extends Controller
 {
-    public function index(SessionInterface $session): JsonResponse
+    public function index(): JsonResponse
     {
-        $result = $session->run('
+        $result = DB::connection('neo4j')->select('
             MATCH (m:Movie)
             OPTIONAL MATCH (m)<-[r:ACTED_IN]-(a:Person)
             RETURN m, collect(DISTINCT {actor: a, role: r.roles}) as actors
         ');
 
-        return response()->json($result->toArray());
+        return response()->json($result);
     }
 
-    public function store(Request $request, SessionInterface $session): JsonResponse
+    public function store(Request $request): JsonResponse
     {
         $request->validate([
             'title' => 'required|string',
@@ -29,7 +28,7 @@ class MovieController extends Controller
         ]);
 
         try {
-            $result = $session->run(
+            $result = DB::connection('neo4j')->statement(
                 'CREATE (m:Movie {
                     title: $title,
                     released: $released,
@@ -39,7 +38,7 @@ class MovieController extends Controller
                 $request->only(['title', 'released', 'tagline'])
             );
 
-            return response()->json($result->first());
+            return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
                 'error' => $e->getMessage(),
@@ -48,7 +47,7 @@ class MovieController extends Controller
         }
     }
 
-    public function addActor(Request $request, TransactionInterface $transaction): JsonResponse
+    public function addActor(Request $request): JsonResponse
     {
         $request->validate([
             'movie_title' => 'required|string',
@@ -58,8 +57,9 @@ class MovieController extends Controller
         ]);
 
         try {
-            // First ensure both movie and actor exist, create actor if not exists
-            $result = $transaction->run(
+            DB::connection('neo4j')->beginTransaction();
+
+            $result = DB::connection('neo4j')->select(
                 '
                 MATCH (m:Movie {title: $movieTitle})
                 MERGE (a:Person {name: $actorName})
@@ -73,27 +73,15 @@ class MovieController extends Controller
                 ]
             );
 
-            if ($result->isEmpty()) {
-                if ($transaction instanceof \Laudis\Neo4j\Contracts\UnmanagedTransactionInterface) {
-                    $transaction->rollback();
-                }
+            if (empty($result)) {
+                DB::connection('neo4j')->rollBack();
                 return response()->json(['message' => 'Movie not found'], 404);
             }
 
-            $data = $result->first();
-
-            // Commit the transaction
-            if ($transaction instanceof \Laudis\Neo4j\Contracts\UnmanagedTransactionInterface) {
-                $transaction->commit();
-            }
-
-            return response()->json($data);
+            DB::connection('neo4j')->commit();
+            return response()->json($result[0]);
         } catch (\Exception $e) {
-            // Rollback if possible
-            if ($transaction instanceof \Laudis\Neo4j\Contracts\UnmanagedTransactionInterface) {
-                $transaction->rollback();
-            }
-
+            DB::connection('neo4j')->rollBack();
             return response()->json([
                 'error' => $e->getMessage(),
                 'type' => get_class($e)
@@ -101,9 +89,9 @@ class MovieController extends Controller
         }
     }
 
-    public function show(string $title, SessionInterface $session): JsonResponse
+    public function show(string $title): JsonResponse
     {
-        $result = $session->run(
+        $result = DB::connection('neo4j')->select(
             '
             MATCH (m:Movie {title: $title})
             OPTIONAL MATCH (m)<-[r:ACTED_IN]-(a:Person)
@@ -111,17 +99,16 @@ class MovieController extends Controller
             ['title' => $title]
         );
 
-        if ($result->isEmpty()) {
+        if (empty($result)) {
             return response()->json(['message' => 'Movie not found'], 404);
         }
 
-        return response()->json($result->first());
+        return response()->json($result[0]);
     }
 
-    public function findSimilar(string $title, SessionInterface $session): JsonResponse
+    public function findSimilar(string $title): JsonResponse
     {
-        // Find movies through common actors
-        $result = $session->run(
+        $result = DB::connection('neo4j')->select(
             '
             MATCH (m:Movie {title: $title})<-[:ACTED_IN]-(a:Person)-[:ACTED_IN]->(other:Movie)
             WHERE m <> other
@@ -132,12 +119,12 @@ class MovieController extends Controller
             ['title' => $title]
         );
 
-        return response()->json($result->toArray());
+        return response()->json($result);
     }
 
-    public function destroy(string $title, SessionInterface $session): JsonResponse
+    public function destroy(string $title): JsonResponse
     {
-        $result = $session->run(
+        $result = DB::connection('neo4j')->select(
             '
             MATCH (m:Movie {title: $title})
             OPTIONAL MATCH (m)<-[r:ACTED_IN]-()
@@ -146,7 +133,7 @@ class MovieController extends Controller
             ['title' => $title]
         );
 
-        if ($result->first()->get('deleted') === 0) {
+        if ($result[0]->deleted === 0) {
             return response()->json(['message' => 'Movie not found'], 404);
         }
 
