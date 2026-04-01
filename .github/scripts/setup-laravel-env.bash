@@ -21,7 +21,7 @@ function install-specified-laravel-version {
     rm composer.lock || true
     rm -Rf vendor || true
     sed -i 's/\^11.0 || \^12.0/\^'$laravel_version'/g' composer.json
-    composer install
+    composer install --ignore-platform-req=php
 }
 
 trap cleanup EXIT
