@@ -1,0 +1,41 @@
+name: Unit Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+
+    strategy:
+      max-parallel: 10
+      matrix:
+        php: ["8.2", "8.3", "8.4"]
+        laravel: ["11.0"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl, exif, iconv
+          coverage: none
+
+      - name: Make Laravel version script executable
+        run: chmod +x ./.github/scripts/setup-laravel-env.bash
+
+      - name: Override Laravel version
+        run: composer run ci-laravel-install-version ${{ matrix.laravel }}
+
+      - name: Execute Unit Tests
+        run: vendor/bin/phpunit --testsuite Unit

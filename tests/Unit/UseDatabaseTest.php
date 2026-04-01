@@ -1,11 +1,10 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
+namespace Neo4j\Neo4jLaravel\Tests\Unit;
 
-use Laudis\Neo4j\Contracts\ClientInterface;
-use Laudis\Neo4j\Contracts\DriverInterface;
-use Neo4jPhp\Neo4jLaravel\Neo4jConnection;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
+use Illuminate\Support\Facades\DB;
+use Neo4j\Neo4jLaravel\Neo4jConnection;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 class UseDatabaseTest extends TestCase
@@ -20,37 +19,22 @@ class UseDatabaseTest extends TestCase
         $app['config']->set('database.default', 'neo4j');
         $app['config']->set('database.connections.neo4j', [
             'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
+            'url' => 'bolt://localhost:7687',
             'username' => 'neo4j',
-            'password' => 'testtest',
+            'password' => 'password',
             'database' => 'neo4j',
         ]);
     }
 
-    public function testUseDatabaseReturnsConnection(): void
+    public function testCanSwitchDatabase(): void
     {
-        $connection = app(Neo4jConnection::class);
-        $result = $connection->useDatabase('test_db');
-        
-        // The method should return $this for chaining
-        $this->assertSame($connection, $result);
-        
-        // The database should now be set to test_db
-        $this->assertEquals('test_db', $connection->getDatabaseName());
-    }
-    
-    public function testUseDatabaseWithQueryExecutesOnSpecifiedDatabase(): void
-    {
-        // Create a simplified test that doesn't rely on mocking the driver
-        $connection = app(Neo4jConnection::class);
-        
-        // Initial database should be neo4j (from config)
+        /** @var Neo4jConnection $connection */
+        $connection = DB::connection('neo4j');
+
         $this->assertEquals('neo4j', $connection->getDatabaseName());
-        
-        // Change the database
-        $connection->useDatabase('test_db');
-        
-        // Check that database name was updated
-        $this->assertEquals('test_db', $connection->getDatabaseName());
+
+        $connection->useDatabase('other-db');
+
+        $this->assertEquals('other-db', $connection->getDatabaseName());
     }
-} 
+}

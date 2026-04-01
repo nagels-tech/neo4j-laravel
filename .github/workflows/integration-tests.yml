@@ -1,0 +1,61 @@
+name: Integration Tests
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} - Laravel ${{ matrix.laravel }}
+    runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      NEO4J_HOST: localhost
+      NEO4J_DATABASE: neo4j
+      NEO4J_PORT: 7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: testtest
+
+    strategy:
+      max-parallel: 10
+      matrix:
+        php: ["8.2", "8.3", "8.4"]
+        laravel: ["11.0"]
+
+    services:
+      neo4j:
+        image: neo4j:5.22
+        env:
+          NEO4J_AUTH: neo4j/testtest
+        options: >-
+          --health-cmd "wget -q --method=HEAD http://localhost:7474 || exit 1"
+          --health-start-period "60s"
+          --health-interval "30s"
+          --health-timeout "15s"
+          --health-retries "5"
+        ports:
+          - 7474:7474
+          - 7687:7687
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, intl, exif, iconv
+          coverage: none
+
+      - name: Make Laravel version script executable
+        run: chmod +x ./.github/scripts/setup-laravel-env.bash
+
+      - name: Override Laravel version
+        run: composer run ci-laravel-install-version ${{ matrix.laravel }}
+
+      - name: Execute Integration Tests
+        run: vendor/bin/phpunit --testsuite Integration

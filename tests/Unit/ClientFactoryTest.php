@@ -3,7 +3,8 @@
 namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
 
 use Laudis\Neo4j\Contracts\ClientInterface;
-use Neo4jPhp\Neo4jLaravel\ClientFactory;
+use Neo4j\Neo4jLaravel\ClientFactory;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -26,35 +27,47 @@ class ClientFactoryTest extends TestCase
         'timeout' => 30,
     ];
 
-    private array $connections = [
-        [
-            'alias' => 'default',
-            'uri' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
-            'authentication' => [
-                'scheme' => 'basic',
+    private array $connections;
+
+    protected function getPackageProviders($app): array
+    {
+        return [Neo4jServiceProvider::class];
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->connections = [
+            [
+                'alias' => 'default',
+                'uri' => 'bolt://localhost:7687',
                 'username' => 'neo4j',
                 'password' => 'password',
-            ],
-            'driver_config' => [
-                'connection_timeout' => 30,
-                'max_pool_size' => 100,
-                'ssl' => [
-                    'mode' => 'from_url',
-                    'verify_peer' => true,
+                'authentication' => [
+                    'scheme' => 'basic',
+                    'username' => 'neo4j',
+                    'password' => 'password',
+                ],
+                'driver_config' => [
+                    'connection_timeout' => 30,
+                    'max_pool_size' => 100,
+                    'ssl' => [
+                        'mode' => 'from_url',
+                        'verify_peer' => true,
+                    ],
+                ],
+                'session_config' => [
+                    'database' => 'neo4j',
+                ],
+                'transaction_config' => [
+                    'timeout' => 30,
                 ],
             ],
-            'session_config' => [
-                'database' => 'neo4j',
-            ],
-            'transaction_config' => [
-                'timeout' => 30,
-            ],
-        ],
-    ];
+        ];
+    }
 
-    public function test_creates_client_without_logger(): void
+    public function testCreatesClientWithoutLogger(): void
     {
         $factory = new ClientFactory(
             $this->defaultDriverConfig,
@@ -69,7 +82,7 @@ class ClientFactoryTest extends TestCase
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function test_creates_client_with_logger(): void
+    public function testCreatesClientWithLogger(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
 
@@ -86,7 +99,7 @@ class ClientFactoryTest extends TestCase
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function test_creates_client_with_multiple_connections(): void
+    public function testCreatesClientWithMultipleConnections(): void
     {
         $connections = [
             [
@@ -153,7 +166,7 @@ class ClientFactoryTest extends TestCase
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function test_creates_client_with_oidc_auth(): void
+    public function testCreatesClientWithOidcAuth(): void
     {
         $connections = [
             [
@@ -181,7 +194,7 @@ class ClientFactoryTest extends TestCase
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function test_creates_client_with_no_auth(): void
+    public function testCreatesClientWithNoAuth(): void
     {
         $connections = [
             [
@@ -208,7 +221,7 @@ class ClientFactoryTest extends TestCase
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function test_creates_client_with_different_ssl_modes(): void
+    public function testCreatesClientWithDifferentSslModes(): void
     {
         $sslModes = ['enable', 'enable_with_self_signed', 'disable', 'from_url'];
 

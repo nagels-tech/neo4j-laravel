@@ -1,6 +1,6 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel;
+namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Database\Schema\Grammars\Grammar;
 

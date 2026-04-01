@@ -1,29 +1,21 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Integration;
+namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Types\Node;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
+use Neo4j\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jConnectionTest extends TestCase
 {
-    protected function getPackageProviders($app): array
-    {
-        return [Neo4jServiceProvider::class];
-    }
-
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('database.default', 'neo4j');
-        $app['config']->set('database.connections.neo4j', [
-            'driver' => 'neo4j',
-            'url' => 'bolt://neo4j:7687',
-            'username' => 'neo4j',
-            'password' => 'testtest',
-            'database' => 'neo4j',
+        parent::defineEnvironment($app);
+
+        // Add test-specific connection settings
+        $app['config']->set('database.connections.neo4j.connection', [
+            'timeout' => 5,
         ]);
     }
 

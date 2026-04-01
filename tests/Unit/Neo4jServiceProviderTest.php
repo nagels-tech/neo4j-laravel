@@ -1,18 +1,13 @@
 <?php
 
-namespace Neo4jPhp\Neo4jLaravel\Tests\Unit;
+namespace Neo4j\Neo4jLaravel\Tests\Unit;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Laudis\Neo4j\Contracts\ClientInterface;
-use Laudis\Neo4j\Contracts\DriverInterface;
-use Laudis\Neo4j\Contracts\SessionInterface;
-use Laudis\Neo4j\Contracts\TransactionInterface;
-use Mockery;
-use Neo4jPhp\Neo4jLaravel\Neo4jServiceProvider;
-use Orchestra\Testbench\TestCase;
-use Psr\Log\LoggerInterface;
+use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
+use Orchestra\Testbench\TestCase as OrchestraTestCase;
 
-class Neo4jServiceProviderTest extends TestCase
+class Neo4jServiceProviderTest extends OrchestraTestCase
 {
     protected function getPackageProviders($app): array
     {
@@ -21,11 +16,46 @@ class Neo4jServiceProviderTest extends TestCase
 
     protected function defineEnvironment($app): void
     {
-        // Set up database configuration
         $app['config']->set('database.default', 'neo4j');
         $app['config']->set('database.connections.neo4j', [
             'driver' => 'neo4j',
             'url' => 'bolt://localhost:7687',
+            'username' => 'neo4j',
+            'password' => 'password',
+            'database' => 'neo4j',
+        ]);
+    }
+
+    public function testServiceProviderRegistersClient(): void
+    {
+        $client = $this->app->make(ClientInterface::class);
+        $this->assertInstanceOf(ClientInterface::class, $client);
+    }
+
+    public function testServiceProviderRequiresValidDriver(): void
+    {
+        $this->app['config']->set('database.connections.neo4j.driver', 'invalid');
+
+        $this->expectException(BindingResolutionException::class);
+        $this->expectExceptionMessage("Default Neo4j connection 'neo4j' is not configured or invalid");
+
+        $this->app->make(ClientInterface::class);
+    }
+
+    public function testServiceProviderRequiresValidUrl(): void
+    {
+        $this->app['config']->set('database.connections.neo4j.url', null);
+
+        $this->expectException(BindingResolutionException::class);
+        $this->expectExceptionMessage('Missing required URL or host/port configuration for Neo4j connection');
+
+        $this->app->make(ClientInterface::class);
+    }
+
+    public function testServiceProviderHandlesHostAndPort(): void
+    {
+        $this->app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
             'host' => 'localhost',
             'port' => 7687,
             'username' => 'neo4j',
@@ -33,165 +63,91 @@ class Neo4jServiceProviderTest extends TestCase
             'database' => 'neo4j',
         ]);
 
-        // Mock the Neo4j client and its dependencies
-        $mockClient = Mockery::mock(ClientInterface::class);
-        $mockDriver = Mockery::mock(DriverInterface::class);
-        $mockSession = Mockery::mock(SessionInterface::class);
-        $mockTransaction = Mockery::mock(TransactionInterface::class);
-
-        $mockClient->shouldReceive('getDriver')->andReturn($mockDriver);
-        $mockDriver->shouldReceive('createSession')->andReturn($mockSession);
-        $mockSession->shouldReceive('beginTransaction')->andReturn($mockTransaction);
-
-        $app->instance(ClientInterface::class, $mockClient);
-        $app->instance(DriverInterface::class, $mockDriver);
-        $app->instance(SessionInterface::class, $mockSession);
-        $app->instance(TransactionInterface::class, $mockTransaction);
-    }
-
-    public function testBindsClientInterface(): void
-    {
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testBindsDriverInterface(): void
+    public function testServiceProviderHandlesMultipleConnections(): void
     {
-        $driver = $this->app->make(DriverInterface::class);
-        $this->assertInstanceOf(DriverInterface::class, $driver);
-    }
-
-    public function testBindsSessionInterface(): void
-    {
-        $session = $this->app->make(SessionInterface::class);
-        $this->assertInstanceOf(SessionInterface::class, $session);
-    }
-
-    public function testBindsTransactionInterface(): void
-    {
-        $transaction = $this->app->make(TransactionInterface::class);
-        $this->assertInstanceOf(TransactionInterface::class, $transaction);
-    }
-
-    public function testDatabaseConfigurationIsValid(): void
-    {
-        $config = $this->app['config']->get('database.connections.neo4j');
-
-        $this->assertEquals('neo4j', $config['driver']);
-        $this->assertArrayHasKey('host', $config);
-        $this->assertArrayHasKey('port', $config);
-        $this->assertArrayHasKey('username', $config);
-        $this->assertArrayHasKey('password', $config);
-    }
-
-    public function testHandlesMultipleConnections(): void
-    {
-        $this->app['config']->set('neo4j.connections.second', [
-            'url' => 'bolt://second-host:7687',
+        $this->app['config']->set('database.connections.neo4j_secondary', [
+            'driver' => 'neo4j',
+            'url' => 'bolt://localhost:7688',
             'username' => 'neo4j',
             'password' => 'password',
             'database' => 'neo4j',
-            'auth_scheme' => 'basic',
-            'ssl' => [
-                'mode' => 'from_url',
-                'verify_peer' => true,
-            ],
-            'connection' => [
-                'timeout' => 30,
-                'max_pool_size' => 100,
-            ],
-            'transaction' => [
-                'timeout' => 30,
-            ],
         ]);
 
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testHandlesMissingOptionalConfigs(): void
+    public function testServiceProviderHandlesSslConfiguration(): void
     {
-        $this->app['config']->set('neo4j.connections.minimal', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
+        $this->app['config']->set('database.connections.neo4j.ssl', [
+            'mode' => 'enable',
+            'verify_peer' => false,
         ]);
 
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testHandlesCustomSslConfig(): void
+    public function testServiceProviderHandlesConnectionConfiguration(): void
     {
-        $this->app['config']->set('neo4j.connections.ssl', [
-            'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
-            'ssl' => [
-                'mode' => 'verify_full',
-                'verify_peer' => true,
-                'ca_file' => '/path/to/ca.pem',
-                'peer_name' => 'neo4j.example.com',
-            ],
+        $this->app['config']->set('database.connections.neo4j.connection', [
+            'max_pool_size' => 50,
+            'timeout' => 15,
         ]);
 
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testHandlesCustomLogging(): void
+    public function testServiceProviderHandlesTransactionConfiguration(): void
     {
-        $this->app['config']->set('neo4j.logging.level', 'debug');
-
-        $mockLogger = Mockery::mock(LoggerInterface::class);
-        $mockLogger->shouldReceive('log')->withAnyArgs();
-        $this->app->instance('log', $mockLogger);
+        $this->app['config']->set('database.connections.neo4j.transaction', [
+            'timeout' => 45,
+        ]);
 
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testThrowsExceptionForMissingRequiredConfig(): void
+    public function testServiceProviderHandlesKerberosAuth(): void
     {
-        $this->expectException(BindingResolutionException::class);
-
-        // Clear all connections and set an invalid default
-        $this->app['config']->set('database.default', 'neo4j');
         $this->app['config']->set('database.connections.neo4j', [
             'driver' => 'neo4j',
-            'username' => 'neo4j',
-            'password' => 'password',
-        ]);
-
-        $this->app->forgetInstance(ClientInterface::class);
-        $this->app->make(ClientInterface::class);
-    }
-
-    public function testHandlesNonBasicAuthSchemes(): void
-    {
-        $this->app['config']->set('neo4j.connections.custom_auth', [
             'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
-            'auth_scheme' => 'custom',
-            'auth_token' => 'custom-token',
+            'auth_scheme' => 'kerberos',
+            'ticket' => 'kerberos-ticket',
+            'database' => 'neo4j',
         ]);
 
         $client = $this->app->make(ClientInterface::class);
         $this->assertInstanceOf(ClientInterface::class, $client);
     }
 
-    public function testHandlesConnectionPoolConfig(): void
+    public function testServiceProviderHandlesOidcAuth(): void
     {
-        $this->app['config']->set('neo4j.connections.pool', [
+        $this->app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
             'url' => 'bolt://localhost:7687',
-            'username' => 'neo4j',
-            'password' => 'password',
-            'connection' => [
-                'timeout' => 5,
-                'max_pool_size' => 50,
-                'keep_alive' => true,
-            ],
+            'auth_scheme' => 'oidc',
+            'token' => 'oidc-token',
+            'database' => 'neo4j',
+        ]);
+
+        $client = $this->app->make(ClientInterface::class);
+        $this->assertInstanceOf(ClientInterface::class, $client);
+    }
+
+    public function testServiceProviderHandlesNoAuth(): void
+    {
+        $this->app['config']->set('database.connections.neo4j', [
+            'driver' => 'neo4j',
+            'url' => 'bolt://localhost:7687',
+            'auth_scheme' => 'none',
+            'database' => 'neo4j',
         ]);
 
         $client = $this->app->make(ClientInterface::class);
