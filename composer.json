@@ -20,11 +20,11 @@
   },
   "require-dev": {
     "orchestra/testbench": "^9.0 || ^10.0",
-    "phpunit/phpunit": "^11.0",
-    "vimeo/psalm": "^6.8",
-    "psalm/plugin-laravel": "^2.12 || ^3.0",
+    "phpunit/phpunit": "^10.5",
+    "psalm/plugin-laravel": "^2.12",
     "friendsofphp/php-cs-fixer": "^3.69",
-    "barryvdh/laravel-debugbar": "^3.15"
+    "barryvdh/laravel-debugbar": "^3.15",
+    "vimeo/psalm": "^5.0"
   },
   "scripts": {
     "psalm": "vendor/bin/psalm",
@@ -34,6 +34,8 @@
       "@psalm"
     ],
     "test": "vendor/bin/phpunit",
+    "test:unit": "vendor/bin/phpunit --testsuite Unit",
+    "test:integration": "vendor/bin/phpunit --testsuite Integration",
     "ci-laravel-install-version": "./.github/scripts/setup-laravel-env.bash"
   },
   "extra": {
