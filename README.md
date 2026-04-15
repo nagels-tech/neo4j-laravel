@@ -46,7 +46,8 @@ Each Neo4j connection keeps an in-memory query log (the same entries `getQueryLo
 |----------|----------|
 | `NEO4J_QUERY_CHANNEL` **unset or empty** | Each log line is written with `Log::debug(...)` (no `::channel()`), so messages use your app’s default log stack from `config('logging.default')` (usually `stack` → `single` / `laravel.log`). |
 | `NEO4J_QUERY_CHANNEL=neo4j_queries` (non-empty) | If `config('logging.channels.neo4j_queries')` exists, lines are written with `Log::channel('neo4j_queries')->debug(...)`. Define that channel in `config/logging.php` (e.g. a `daily` file dedicated to Neo4j). If the name is set but **not** defined under `logging.channels`, the package falls back to the same behavior as an empty value (default logger). |
-| `NEO4J_QUERY_LOG_ALLOW_PRODUCTION` | When `APP_ENV=production`, a **non-empty** `NEO4J_QUERY_CHANNEL` skips writing to Laravel (the in-memory log is still cleared) unless this is `true`, so a dedicated file or Slack channel is not accidentally noisy in production. When `NEO4J_QUERY_CHANNEL` is empty, production behaves like any other environment and uses the default log. |
+
+To tune or disable logging per environment, configure the channel itself in `config/logging.php` (e.g. `level`, a `null` driver, or omitting the channel from your production `LOG_STACK`).
 
 Example: dedicated daily channel in `config/logging.php`:
 
@@ -63,8 +64,6 @@ Then in `.env`:
 
 ```env
 NEO4J_QUERY_CHANNEL=neo4j_queries
-# Optional: required to actually write that channel when APP_ENV=production
-# NEO4J_QUERY_LOG_ALLOW_PRODUCTION=true
 ```
 
 ### Database Configuration

@@ -14,17 +14,4 @@ return [
     |
     */
     'query_log_channel' => env('NEO4J_QUERY_CHANNEL', ''),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Allow query log flush to a dedicated channel in production
-    |--------------------------------------------------------------------------
-    |
-    | When NEO4J_QUERY_CHANNEL is set and APP_ENV is production, the package
-    | skips writing query log lines to Laravel (but still clears the in-memory
-    | log) unless this is true, to avoid heavy logging in production by
-    | accident.
-    |
-    */
-    'query_log_allow_production' => env('NEO4J_QUERY_LOG_ALLOW_PRODUCTION', false),
 ];

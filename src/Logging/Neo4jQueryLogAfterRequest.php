@@ -22,15 +22,9 @@ final class Neo4jQueryLogAfterRequest
 
         $config = $app->make('config');
         $channel = trim((string) $config->get('neo4j-laravel.query_log_channel', ''));
-        $allowProductionChannel = (bool) $config->get('neo4j-laravel.query_log_allow_production', false);
 
         $channels = $config->get('logging.channels', []);
         $channelConfigured = is_array($channels) && $channel !== '' && array_key_exists($channel, $channels);
-
-        $writeToLaravel = true;
-        if ($channel !== '' && $app->environment('production') && ! $allowProductionChannel) {
-            $writeToLaravel = false;
-        }
 
         $db = $app->make('db');
 
@@ -54,16 +48,14 @@ final class Neo4jQueryLogAfterRequest
                 continue;
             }
 
-            if ($writeToLaravel) {
-                if ($channel !== '' && $channelConfigured) {
-                    $log = Log::channel($channel);
-                    foreach ($entries as $entry) {
-                        $log->debug('Neo4j query', $entry);
-                    }
-                } else {
-                    foreach ($entries as $entry) {
-                        Log::debug('Neo4j query', $entry);
-                    }
+            if ($channel !== '' && $channelConfigured) {
+                $log = Log::channel($channel);
+                foreach ($entries as $entry) {
+                    $log->debug('Neo4j query', $entry);
+                }
+            } else {
+                foreach ($entries as $entry) {
+                    Log::debug('Neo4j query', $entry);
                 }
             }
 
