@@ -38,6 +38,35 @@ NEO4J_PASSWORD=your_password
 NEO4J_DATABASE=neo4j
 ```
 
+#### Query log flushing (`NEO4J_QUERY_CHANNEL`)
+
+Each Neo4j connection keeps an in-memory query log (the same entries `getQueryLog()` returns; queries are still recorded by the existing `logQuery()` path with timing—nothing is double-logged at execution time). After each HTTP request finishes (or when a console command ends), that buffer is flushed once to Laravel’s logger as `debug` lines, then cleared.
+
+| Variable | Behavior |
+|----------|----------|
+| `NEO4J_QUERY_CHANNEL` **unset or empty** | Each log line is written with `Log::debug(...)` (no `::channel()`), so messages use your app’s default log stack from `config('logging.default')` (usually `stack` → `single` / `laravel.log`). |
+| `NEO4J_QUERY_CHANNEL=neo4j_queries` (non-empty) | If `config('logging.channels.neo4j_queries')` exists, lines are written with `Log::channel('neo4j_queries')->debug(...)`. Define that channel in `config/logging.php` (e.g. a `daily` file dedicated to Neo4j). If the name is set but **not** defined under `logging.channels`, the package falls back to the same behavior as an empty value (default logger). |
+| `NEO4J_QUERY_LOG_ALLOW_PRODUCTION` | When `APP_ENV=production`, a **non-empty** `NEO4J_QUERY_CHANNEL` skips writing to Laravel (the in-memory log is still cleared) unless this is `true`, so a dedicated file or Slack channel is not accidentally noisy in production. When `NEO4J_QUERY_CHANNEL` is empty, production behaves like any other environment and uses the default log. |
+
+Example: dedicated daily channel in `config/logging.php`:
+
+```php
+'neo4j_queries' => [
+    'driver' => 'daily',
+    'path' => storage_path('logs/neo4j-queries.log'),
+    'level' => env('LOG_LEVEL', 'debug'),
+    'days' => 14,
+],
+```
+
+Then in `.env`:
+
+```env
+NEO4J_QUERY_CHANNEL=neo4j_queries
+# Optional: required to actually write that channel when APP_ENV=production
+# NEO4J_QUERY_LOG_ALLOW_PRODUCTION=true
+```
+
 ### Database Configuration
 
 Add the Neo4j connection configuration to your `config/database.php`:
