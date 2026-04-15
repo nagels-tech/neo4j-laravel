@@ -15,7 +15,7 @@
   },
   "require": {
     "php": "^8.2",
-    "illuminate/support": "^11.0 || ^12.0",
+    "illuminate/support": "^11.0 || ^12.0 || ^13.0",
     "laudis/neo4j-php-client": "^3.2"
   },
   "require-dev": {
