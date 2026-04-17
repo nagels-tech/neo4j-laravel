@@ -10,6 +10,7 @@ use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
+use Neo4j\Neo4jLaravel\Logging\Neo4jQueryLogAfterRequest;
 
 /**
  * @api
@@ -19,6 +20,11 @@ final class Neo4jServiceProvider extends ServiceProvider
     #[\Override]
     public function register(): void
     {
+        $this->mergeConfigFrom(
+            dirname(__DIR__) . '/config/neo4j-laravel.php',
+            'neo4j-laravel'
+        );
+
         $this->app->singleton(ClientInterface::class, function (Application $app): ClientInterface {
             $config = $app->make('config');
             $defaultConnection = $config->get('database.default');
@@ -91,6 +97,13 @@ final class Neo4jServiceProvider extends ServiceProvider
         if (class_exists('Barryvdh\\Debugbar\\ServiceProvider')) {
             $this->app->register(Neo4jDebugServiceProvider::class);
         }
+    }
+
+    public function boot(): void
+    {
+        $this->app->terminating(function (): void {
+            Neo4jQueryLogAfterRequest::flush($this->app);
+        });
     }
 
     /**
