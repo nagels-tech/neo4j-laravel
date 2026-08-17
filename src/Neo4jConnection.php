@@ -221,17 +221,87 @@ final class Neo4jConnection extends Connection
 
     /**
      * Run a select statement against the database.
+     *
+     * Query Builder compiles Cypher with named params ($p0, $p1, ...) while Laravel
+     * passes positional bindings. Remap list bindings to named params for Laudis.
+     * Results are returned as an array of associative row arrays for Laravel get().
      */
     #[\Override]
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
-        try {
-            $result = $this->read($query, $bindings);
+        $parameters = $this->prepareNeo4jParameters($bindings);
 
-            return is_array($result) ? $result : [$result];
+        try {
+            $result = $this->read($query, $parameters);
+
+            return $this->mapSelectResult($result);
         } catch (\Exception $e) {
             throw $e;
         }
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $bindings
+     * @return array<string, mixed>
+     */
+    private function prepareNeo4jParameters(array $bindings): array
+    {
+        if ($bindings === []) {
+            return [];
+        }
+
+        if (! array_is_list($bindings)) {
+            /** @var array<string, mixed> $bindings */
+            return $bindings;
+        }
+
+        $parameters = [];
+        foreach ($bindings as $index => $value) {
+            $parameters['p'.$index] = $value;
+        }
+
+        return $parameters;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function mapSelectResult(mixed $result): array
+    {
+        if ($result === null) {
+            return [];
+        }
+
+        if (is_array($result) && $result !== [] && array_is_list($result) && is_array($result[0] ?? null)) {
+            /** @var list<array<string, mixed>> $result */
+            return $result;
+        }
+
+        $rows = [];
+        foreach ($result as $record) {
+            if (is_array($record)) {
+                $rows[] = $record;
+                continue;
+            }
+
+            if (is_object($record) && method_exists($record, 'toArray')) {
+                /** @var array<string, mixed> $row */
+                $row = $record->toArray();
+                $rows[] = $row;
+                continue;
+            }
+
+            if (is_object($record) && method_exists($record, 'keys') && method_exists($record, 'get')) {
+                /** @var array<string, mixed> $row */
+                $row = [];
+                foreach ($record->keys() as $key) {
+                    $row[$key] = $record->get($key);
+                }
+                $rows[] = $row;
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -315,7 +385,14 @@ final class Neo4jConnection extends Connection
     #[\Override]
     protected function getDefaultQueryGrammar()
     {
-        return new Neo4jQueryGrammar();
+        $grammar = new Neo4jQueryGrammar();
+
+        // Laravel 11+ Grammar::setConnection(); older installs may not have it.
+        if (method_exists($grammar, 'setConnection')) {
+            $grammar->setConnection($this);
+        }
+
+        return $grammar;
     }
 
     /**
