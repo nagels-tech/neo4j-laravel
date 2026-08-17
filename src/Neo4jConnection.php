@@ -226,7 +226,7 @@ final class Neo4jConnection extends Connection
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
         try {
-            $result = $this->read($query, $bindings);
+            $result = $this->read($query, $this->prepareBindings($bindings));
 
             return is_array($result) ? $result : [$result];
         } catch (\Exception $e) {
@@ -244,7 +244,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function insert($query, $bindings = []): bool
     {
-        return (bool) $this->write($query, $bindings);
+        return (bool) $this->write($query, $this->prepareBindings($bindings));
     }
 
     /**
@@ -257,7 +257,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function update($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
 
         return $result->summaryCounters()->nodesCreated() + $result->summaryCounters()->nodesDeleted();
     }
@@ -272,7 +272,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function delete($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
 
         return $result->summaryCounters()->nodesDeleted();
     }
@@ -287,7 +287,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function statement($query, $bindings = []): bool
     {
-        return (bool) $this->write($query, $bindings);
+        return (bool) $this->write($query, $this->prepareBindings($bindings));
     }
 
     /**
@@ -300,11 +300,33 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function affectingStatement($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
 
         return $result->summaryCounters()->nodesCreated() +
             $result->summaryCounters()->nodesDeleted() +
             $result->summaryCounters()->propertiesSet();
+    }
+
+    /**
+     * Prepare Laravel's positional bindings for named Cypher parameters.
+     *
+     * Associative bindings used by raw Cypher are preserved.
+     *
+     * @param  array<int|string, mixed>  $bindings
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function prepareBindings(array $bindings): array
+    {
+        $bindings = parent::prepareBindings($bindings);
+        $prepared = [];
+        $position = 0;
+
+        foreach ($bindings as $key => $value) {
+            $prepared[is_int($key) ? 'p'.$position++ : $key] = $value;
+        }
+
+        return $prepared;
     }
 
     /**
