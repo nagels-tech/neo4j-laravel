@@ -23,9 +23,9 @@ use WikibaseSolutions\CypherDSL\Types\PropertyTypes\BooleanType;
  *   - orderBy -> ORDER BY
  *   - limit   -> LIMIT
  *   - offset  -> SKIP
- *
- * The write path (insert/update/delete) intentionally throws so SQL is never
- * silently generated for Neo4j. Raw Cypher via statement() remains supported.
+ *   - insert   -> CREATE
+ *   - update   -> MATCH / SET
+ *   - delete   -> MATCH / DELETE
  *
  * @psalm-suppress PropertyNotSetInConstructor
  */
@@ -255,7 +255,7 @@ final class Neo4jQueryGrammar extends Grammar
 
     private function nextParameter(): Parameter
     {
-        return Query::parameter('p'.$this->parameterIndex++);
+        return Query::parameter($this->nextParameterName());
     }
 
     private function normalizeOperator(string $operator): string
@@ -304,7 +304,10 @@ final class Neo4jQueryGrammar extends Grammar
             $this->assertIdentifier($alias);
             $this->assertIdentifier($property);
 
-            return Query::variable($alias)->property($property);
+            // Eloquent qualifies keys with the model table/label (for example,
+            // User.id), while this single-node grammar always binds that label
+            // to the Cypher variable "n".
+            return Query::variable('n')->property($property);
         }
 
         $this->assertIdentifier($column);
@@ -338,7 +341,20 @@ final class Neo4jQueryGrammar extends Grammar
     #[\Override]
     public function compileInsert(Builder $query, array $values)
     {
-        throw new RuntimeException('Query Builder insert is not supported yet for Neo4j; use raw Cypher via statement().');
+        $this->parameterIndex = 0;
+        $label = $this->compileLabel($query->from);
+        $nodes = [];
+
+        foreach (array_values($values) as $index => $record) {
+            $nodes[] = sprintf(
+                '(n%d:%s %s)',
+                $index,
+                $label,
+                $this->compilePropertyMap(array_keys($record))
+            );
+        }
+
+        return 'CREATE '.implode(', ', $nodes);
     }
 
     /**
@@ -348,7 +364,24 @@ final class Neo4jQueryGrammar extends Grammar
     #[\Override]
     public function compileUpdate(Builder $query, array $values)
     {
-        throw new RuntimeException('Query Builder update is not supported yet for Neo4j; use raw Cypher via statement().');
+        $this->parameterIndex = 0;
+        $assignments = [];
+
+        foreach (array_keys($values) as $column) {
+            $this->assertIdentifier((string) $column);
+            $assignments[] = 'n.'.$column.' = $'.$this->nextParameterName();
+        }
+
+        $node = $this->compileNode($query->from);
+        $cypher = Query::new()->match($node);
+        $where = $this->compileWhereExpression($query->wheres ?? [], $node);
+        $prefix = $cypher->build();
+
+        if ($where !== null) {
+            $prefix .= ' '.Query::new()->where($where)->build();
+        }
+
+        return $prefix.' SET '.implode(', ', $assignments);
     }
 
     /**
@@ -357,6 +390,49 @@ final class Neo4jQueryGrammar extends Grammar
     #[\Override]
     public function compileDelete(Builder $query)
     {
-        throw new RuntimeException('Query Builder delete is not supported yet for Neo4j; use raw Cypher via statement().');
+        $this->parameterIndex = 0;
+        $node = $this->compileNode($query->from);
+        $cypher = Query::new()->match($node);
+        $where = $this->compileWhereExpression($query->wheres ?? [], $node);
+        $prefix = $cypher->build();
+
+        if ($where !== null) {
+            $prefix .= ' '.Query::new()->where($where)->build();
+        }
+
+        return $prefix.' DELETE n';
+    }
+
+    /**
+     * @param  list<string>  $columns
+     */
+    private function compilePropertyMap(array $columns): string
+    {
+        $properties = [];
+
+        foreach ($columns as $column) {
+            $this->assertIdentifier($column);
+            $properties[] = $column.': $'.$this->nextParameterName();
+        }
+
+        return '{'.implode(', ', $properties).'}';
+    }
+
+    private function compileLabel(mixed $from): string
+    {
+        if (! is_string($from) || $from === '') {
+            throw new InvalidArgumentException('Neo4j Query Builder requires a node label via from()/table().');
+        }
+
+        if (! preg_match('/^[A-Za-z_][A-Za-z0-9_]*(?::[A-Za-z_][A-Za-z0-9_]*)*$/', $from)) {
+            throw new InvalidArgumentException("Invalid Neo4j label: {$from}");
+        }
+
+        return $from;
+    }
+
+    private function nextParameterName(): string
+    {
+        return 'p'.$this->parameterIndex++;
     }
 }

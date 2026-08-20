@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
+use Laudis\Neo4j\Databags\SummarizedResult;
 use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
 
@@ -225,13 +226,13 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
-        try {
-            $result = $this->read($query, $this->prepareBindings($bindings));
+        $result = $this->read($query, $this->prepareBindings($bindings));
 
-            return is_array($result) ? $result : [$result];
-        } catch (\Exception $e) {
-            throw $e;
+        if ($result instanceof SummarizedResult) {
+            return $result->list();
         }
+
+        return is_array($result) ? $result : [$result];
     }
 
     /**
@@ -259,7 +260,7 @@ final class Neo4jConnection extends Connection
     {
         $result = $this->write($query, $this->prepareBindings($bindings));
 
-        return $result->summaryCounters()->nodesCreated() + $result->summaryCounters()->nodesDeleted();
+        return $result->getSummary()->getCounters()->propertiesSet();
     }
 
     /**
@@ -274,7 +275,7 @@ final class Neo4jConnection extends Connection
     {
         $result = $this->write($query, $this->prepareBindings($bindings));
 
-        return $result->summaryCounters()->nodesDeleted();
+        return $result->getSummary()->getCounters()->nodesDeleted();
     }
 
     /**
@@ -301,10 +302,11 @@ final class Neo4jConnection extends Connection
     public function affectingStatement($query, $bindings = []): int
     {
         $result = $this->write($query, $this->prepareBindings($bindings));
+        $counters = $result->getSummary()->getCounters();
 
-        return $result->summaryCounters()->nodesCreated() +
-            $result->summaryCounters()->nodesDeleted() +
-            $result->summaryCounters()->propertiesSet();
+        return $counters->nodesCreated() +
+            $counters->nodesDeleted() +
+            $counters->propertiesSet();
     }
 
     /**
