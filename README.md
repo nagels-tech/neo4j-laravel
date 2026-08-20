@@ -13,7 +13,7 @@ A Laravel package that provides integration with Neo4j graph database.
 > If you choose to use Neo4j as your default database:
 >
 > - Set `SESSION_DRIVER=file` in your .env file
-> - Laravel Authentication will not work as it relies on Eloquent ORM
+> - Store authentication data in Neo4j only if your application model uses the Neo4j Eloquent concern described below
 > - Other features that depend on the default database connection may be affected
 >
 > These limitations will be addressed in future releases.
@@ -118,6 +118,45 @@ try {
     throw $e;
 }
 ```
+
+### Using Eloquent
+
+Add `HasNeo4jConnection` to a standard Eloquent model. The model class name is
+used as its default Neo4j label, so `User` maps to `:User`. New models receive a
+UUID `id` automatically.
+
+```php
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Neo4j\Neo4jLaravel\Concerns\HasNeo4jConnection;
+
+class User extends Model
+{
+    use HasNeo4jConnection;
+
+    protected $fillable = ['name', 'email'];
+}
+```
+
+The regular Eloquent read and CRUD APIs then use the Neo4j connection, Query
+Builder, and Cypher grammar:
+
+```php
+$user = User::where('name', 'Pratiksha')->first();
+
+$user = User::create([
+    'name' => 'Pratiksha',
+    'email' => 'pratiksha@example.com',
+]);
+
+$user->update(['name' => 'Pratiksha Zalte']);
+$user->delete();
+```
+
+For a dedicated graph model, the package also provides
+`Neo4j\Neo4jLaravel\Neo4jModel`, which already includes the concern.
+Graph relationship APIs are not part of the initial Eloquent integration.
 
 ### Using Neo4j Client Interface
 

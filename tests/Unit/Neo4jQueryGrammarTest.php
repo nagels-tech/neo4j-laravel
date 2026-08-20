@@ -80,6 +80,18 @@ final class Neo4jQueryGrammarTest extends TestCase
         $this->builder()->from('Person`) MATCH (x')->toSql();
     }
 
+    public function testMapsEloquentQualifiedColumnsToTheNodeVariable(): void
+    {
+        $builder = $this->builder()
+            ->from('User')
+            ->where('User.id', 'user-1');
+
+        self::assertSame(
+            'MATCH (n:User) WHERE (n.id = $p0) RETURN n',
+            $builder->toSql()
+        );
+    }
+
     public function testConnectionMapsPositionalBindingsToCypherParameterNames(): void
     {
         $connection = new Neo4jConnection($this->createMock(ClientInterface::class));
@@ -91,6 +103,54 @@ final class Neo4jQueryGrammarTest extends TestCase
         self::assertSame(
             ['name' => 'Tom Hanks'],
             $connection->prepareBindings(['name' => 'Tom Hanks'])
+        );
+    }
+
+    public function testCompilesSingleAndBatchInserts(): void
+    {
+        $grammar = new Neo4jQueryGrammar();
+        $builder = $this->builder()->from('User');
+
+        self::assertSame(
+            'CREATE (n0:User {id: $p0, name: $p1})',
+            $grammar->compileInsert($builder, [['id' => 'user-1', 'name' => 'Pratiksha']])
+        );
+        self::assertSame(
+            'CREATE (n0:User {id: $p0, name: $p1}), (n1:User {id: $p2, name: $p3})',
+            $grammar->compileInsert($builder, [
+                ['id' => 'user-1', 'name' => 'Pratiksha'],
+                ['id' => 'user-2', 'name' => 'Ghlen'],
+            ])
+        );
+    }
+
+    public function testCompilesUpdateWithValueBindingsBeforeWhereBindings(): void
+    {
+        $grammar = new Neo4jQueryGrammar();
+        $builder = $this->builder()
+            ->from('User')
+            ->where('id', 'user-1');
+
+        self::assertSame(
+            'MATCH (n:User) WHERE (n.id = $p1) SET n.name = $p0',
+            $grammar->compileUpdate($builder, ['name' => 'Pratiksha Zalte'])
+        );
+        self::assertSame(
+            ['Pratiksha Zalte', 'user-1'],
+            $grammar->prepareBindingsForUpdate($builder->getRawBindings(), ['Pratiksha Zalte'])
+        );
+    }
+
+    public function testCompilesDelete(): void
+    {
+        $grammar = new Neo4jQueryGrammar();
+        $builder = $this->builder()
+            ->from('User')
+            ->where('id', 'user-1');
+
+        self::assertSame(
+            'MATCH (n:User) WHERE (n.id = $p0) DELETE n',
+            $grammar->compileDelete($builder)
         );
     }
 
