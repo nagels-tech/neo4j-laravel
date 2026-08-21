@@ -365,14 +365,14 @@ final class Neo4jQueryGrammar extends Grammar
     public function compileUpdate(Builder $query, array $values)
     {
         $this->parameterIndex = 0;
+        $node = $this->compileNode($query->from);
         $assignments = [];
 
         foreach (array_keys($values) as $column) {
-            $this->assertIdentifier((string) $column);
-            $assignments[] = 'n.'.$column.' = $'.$this->nextParameterName();
+            $property = $this->compileColumn((string) $column, $node)->toQuery();
+            $assignments[] = $property.' = $'.$this->nextParameterName();
         }
 
-        $node = $this->compileNode($query->from);
         $cypher = Query::new()->match($node);
         $where = $this->compileWhereExpression($query->wheres ?? [], $node);
         $prefix = $cypher->build();
@@ -411,8 +411,7 @@ final class Neo4jQueryGrammar extends Grammar
         $properties = [];
 
         foreach ($columns as $column) {
-            $this->assertIdentifier($column);
-            $properties[] = $column.': $'.$this->nextParameterName();
+            $properties[] = $this->propertyName($column).': $'.$this->nextParameterName();
         }
 
         return '{'.implode(', ', $properties).'}';
@@ -434,5 +433,19 @@ final class Neo4jQueryGrammar extends Grammar
     private function nextParameterName(): string
     {
         return 'p'.$this->parameterIndex++;
+    }
+
+    private function propertyName(string $column): string
+    {
+        if (str_contains($column, '.')) {
+            [, $property] = explode('.', $column, 2);
+            $this->assertIdentifier($property);
+
+            return $property;
+        }
+
+        $this->assertIdentifier($column);
+
+        return $column;
     }
 }

@@ -28,12 +28,15 @@ final class Neo4jEloquentTest extends TestCase
         self::assertSame($created->id, $found->id);
         self::assertSame($created->id, User::find($created->id)?->id);
 
+        self::assertNotNull($created->created_at);
+        self::assertNotNull($created->updated_at);
+
         $found->update(['name' => 'Pratiksha Zalte']);
 
-        self::assertSame(
-            'Pratiksha Zalte',
-            User::where('id', $created->id)->firstOrFail()->name
-        );
+        $updated = User::where('id', $created->id)->firstOrFail();
+
+        self::assertSame('Pratiksha Zalte', $updated->name);
+        self::assertNotNull($updated->updated_at);
 
         self::assertTrue($found->delete());
         self::assertNull(User::where('id', $created->id)->first());
@@ -42,7 +45,5 @@ final class Neo4jEloquentTest extends TestCase
 
 final class User extends Neo4jModel
 {
-    public $timestamps = false;
-
     protected $guarded = [];
 }
