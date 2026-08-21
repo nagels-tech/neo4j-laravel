@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
+use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
 use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
 
@@ -504,7 +505,7 @@ final class Neo4jConnection extends Connection
             ];
         }
 
-        if (app()->bound('debugbar') && app()->bound(Neo4jQueryCollector::class)) {
+        if (DebugbarAvailability::shouldCapture(app())) {
             app(Neo4jQueryCollector::class)->addQuery($query, $bindings, $time, $this->getName());
         }
     }

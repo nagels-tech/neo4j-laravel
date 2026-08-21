@@ -9,6 +9,7 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
+use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
 use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
 use Neo4j\Neo4jLaravel\Logging\Neo4jQueryLogAfterRequest;
 
@@ -94,9 +95,17 @@ final class Neo4jServiceProvider extends ServiceProvider
             return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
         });
 
-        if (class_exists('Barryvdh\\Debugbar\\ServiceProvider')) {
+        $this->app->booting(function (): void {
+            if (! DebugbarAvailability::shouldRegister($this->app)) {
+                return;
+            }
+
+            if (! DebugbarAvailability::isBound($this->app)) {
+                return;
+            }
+
             $this->app->register(Neo4jDebugServiceProvider::class);
-        }
+        });
     }
 
     public function boot(): void

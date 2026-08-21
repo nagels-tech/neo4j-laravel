@@ -47,6 +47,9 @@
   },
   "minimum-stability": "dev",
   "prefer-stable": true,
+  "suggest": {
+    "barryvdh/laravel-debugbar": "Required to display Neo4j Cypher queries in Laravel Debugbar"
+  },
   "config": {
     "allow-plugins": {
       "php-http/discovery": true
