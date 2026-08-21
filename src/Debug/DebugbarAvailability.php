@@ -34,10 +34,10 @@ final class DebugbarAvailability
     }
 
     /**
-     * Whether Neo4j should register its Debugbar service provider.
+     * Whether Neo4j should register its Cypher Queries Debugbar integration.
      *
-     * Integration is enabled only when the Debugbar package is available.
-     * An explicit false for debugbar.options.neo4j.enabled disables registration.
+     * Requires the Debugbar package. Disabled when either
+     * debugbar.collectors.neo4j or debugbar.options.neo4j.enabled is false.
      */
     public static function shouldRegister(Application $app): bool
     {
@@ -49,9 +49,13 @@ final class DebugbarAvailability
             return true;
         }
 
-        $enabled = $app->make('config')->get('debugbar.options.neo4j.enabled');
+        $config = $app->make('config');
 
-        return $enabled !== false;
+        if ($config->get('debugbar.collectors.neo4j', true) === false) {
+            return false;
+        }
+
+        return $config->get('debugbar.options.neo4j.enabled') !== false;
     }
 
     /**
@@ -63,6 +67,7 @@ final class DebugbarAvailability
     {
         return self::isPackagePresent()
             && self::isBound($app)
-            && $app->bound(Neo4jQueryCollector::class);
+            && $app->bound(Neo4jQueryCollector::class)
+            && self::shouldRegister($app);
     }
 }

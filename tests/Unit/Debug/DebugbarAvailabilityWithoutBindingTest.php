@@ -29,6 +29,7 @@ class DebugbarAvailabilityWithoutBindingTest extends TestCase
             'database' => 'neo4j',
         ]);
         // Disable Neo4j Debugbar registration even though the package is installed as require-dev.
+        $app['config']->set('debugbar.collectors.neo4j', false);
         $app['config']->set('debugbar.options.neo4j.enabled', false);
     }
 

@@ -132,6 +132,7 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
                 'map' => 'neo4j',
                 'default' => '[]',
                 'title' => 'Cypher Queries',
+                'order' => 55,
             ],
             'neo4j:badge' => [
                 'map' => 'neo4j.nb_statements',

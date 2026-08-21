@@ -30,6 +30,7 @@ class DebugbarAvailabilityTest extends TestCase
             'database' => 'neo4j',
         ]);
         $app['config']->set('debugbar.enabled', true);
+        $app['config']->set('debugbar.collectors.neo4j', true);
     }
 
     public function test_detects_debugbar_package_when_installed(): void
