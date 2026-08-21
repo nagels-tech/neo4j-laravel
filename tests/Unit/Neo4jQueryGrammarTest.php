@@ -141,6 +141,22 @@ final class Neo4jQueryGrammarTest extends TestCase
         );
     }
 
+    public function testCompilesUpdateWithEloquentQualifiedTimestampColumns(): void
+    {
+        $grammar = new Neo4jQueryGrammar();
+        $builder = $this->builder()
+            ->from('User')
+            ->where('User.id', 'user-1');
+
+        self::assertSame(
+            'MATCH (n:User) WHERE (n.id = $p2) SET n.name = $p0, n.updated_at = $p1',
+            $grammar->compileUpdate($builder, [
+                'name' => 'Pratiksha Zalte',
+                'User.updated_at' => '2026-08-20 09:56:11',
+            ])
+        );
+    }
+
     public function testCompilesDelete(): void
     {
         $grammar = new Neo4jQueryGrammar();
