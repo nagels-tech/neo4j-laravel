@@ -69,7 +69,7 @@ class QueryMetadataCaptureTest extends TestCase
 
         $this->assertSame($cypher, $entry['cypher']);
         $this->assertSame($cypher, $entry['sql']);
-        $this->assertSame($params, $entry['params']);
+        $this->assertEquals($params, (array) $entry['params']);
         $this->assertSame($params, $entry['bindings']);
         $this->assertIsFloat($entry['duration']);
         $this->assertNotNull($entry['duration_str']);
@@ -78,6 +78,8 @@ class QueryMetadataCaptureTest extends TestCase
         $this->assertSame('ok', $entry['status']);
         $this->assertTrue($entry['is_success']);
         $this->assertNull($entry['error_message']);
+        $this->assertSame('cypher', $entry['type']);
+        $this->assertFalse($entry['slow']);
 
         $this->assertSame($cypher, $log['cypher']);
         $this->assertSame($params, $log['params']);
@@ -109,7 +111,7 @@ class QueryMetadataCaptureTest extends TestCase
         $log = $this->connection->getQueryLog()[0];
 
         $this->assertSame($cypher, $entry['cypher']);
-        $this->assertSame($params, $entry['params']);
+        $this->assertEquals($params, (array) $entry['params']);
         $this->assertSame('neo4j_primary', $entry['connection']);
         $this->assertSame('movies', $entry['database']);
         $this->assertSame('error', $entry['status']);

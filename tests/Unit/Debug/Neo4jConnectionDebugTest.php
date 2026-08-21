@@ -63,7 +63,7 @@ class Neo4jConnectionDebugTest extends TestCase
 
         $queryData = $data['statements'][0];
         $this->assertEquals($query, $queryData['sql']);
-        $this->assertEquals($bindings, $queryData['params']);
+        $this->assertEquals($bindings, (array) $queryData['params']);
         $this->assertEquals(0.1, $queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
     }
@@ -100,7 +100,7 @@ class Neo4jConnectionDebugTest extends TestCase
 
         $queryData = $data['statements'][0];
         $this->assertEquals($query, $queryData['sql']);
-        $this->assertEquals($bindings, $queryData['params']);
+        $this->assertEquals($bindings, (array) $queryData['params']);
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
     }
@@ -132,7 +132,7 @@ class Neo4jConnectionDebugTest extends TestCase
 
         $queryData = $data['statements'][0];
         $this->assertEquals($query, $queryData['sql']);
-        $this->assertEquals($bindings, $queryData['params']);
+        $this->assertEquals($bindings, (array) $queryData['params']);
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
         $this->assertFalse($queryData['is_success']);
@@ -156,7 +156,7 @@ class Neo4jConnectionDebugTest extends TestCase
         $data = $this->collector->collect();
         $this->assertEquals(1, $data['nb_statements']);
         $this->assertEquals($query, $data['statements'][0]['cypher']);
-        $this->assertEquals($bindings, $data['statements'][0]['params']);
+        $this->assertEquals($bindings, (array) $data['statements'][0]['params']);
         $this->assertTrue($data['statements'][0]['is_success']);
     }
 
@@ -177,7 +177,7 @@ class Neo4jConnectionDebugTest extends TestCase
         $data = $this->collector->collect();
         $this->assertEquals(1, $data['nb_statements']);
         $this->assertEquals($query, $data['statements'][0]['sql']);
-        $this->assertEquals($bindings, $data['statements'][0]['params']);
+        $this->assertEquals($bindings, (array) $data['statements'][0]['params']);
         $this->assertTrue($data['statements'][0]['is_success']);
         $this->assertIsFloat($data['statements'][0]['duration']);
     }

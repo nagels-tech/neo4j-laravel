@@ -2,21 +2,30 @@
 
 namespace Neo4j\Neo4jLaravel\Debug;
 
+use DebugBar\DataCollector\AssetProvider;
 use DebugBar\DataCollector\DataCollector;
 use DebugBar\DataCollector\Renderable;
 use Illuminate\Support\Str;
 
 /**
- * Collects Cypher queries executed through Neo4j Laravel connections for Debugbar.
+ * Laravel Debugbar DataCollector for Neo4j Cypher queries.
+ *
+ * Stores captured executions and exposes them as a "Cypher Queries" panel
+ * (reusing PhpDebugBar's SQLQueriesWidget for list/badge rendering).
  *
  * @api
  */
-class Neo4jQueryCollector extends DataCollector implements Renderable
+class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProvider
 {
+    /** @var list<array<string, mixed>> */
     protected array $queries = [];
+
     protected bool $timeEnabled = false;
 
     protected bool $explainEnabled = false;
+
+    /** Slow-query threshold in milliseconds; null disables highlighting. */
+    protected ?float $slowThresholdMs = null;
 
     /**
      * Record a Cypher execution for Debugbar.
@@ -32,43 +41,75 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
         ?string $errorMessage = null,
         ?string $database = null
     ): void {
+        $isSlow = $this->slowThresholdMs !== null
+            && $duration !== null
+            && $duration >= $this->slowThresholdMs;
+
         $this->queries[] = [
             // sql keeps compatibility with PhpDebugBar's SQLQueriesWidget
             'sql' => $query,
             'cypher' => $query,
-            'params' => $parameters,
+            'type' => 'cypher',
+            'params' => (object) $parameters,
             'bindings' => $parameters,
             'duration' => $duration,
-            'duration_str' => $duration !== null ? sprintf('%.2f ms', $duration) : null,
-            'connection' => $connection,
+            'duration_str' => $duration !== null ? $this->formatDuration($duration) : null,
+            'connection' => $connection ?? 'neo4j',
             'database' => $database,
             'status' => $isSuccess ? 'ok' : 'error',
             'is_success' => $isSuccess,
             'error_message' => $errorMessage,
+            'slow' => $isSlow,
             'stmt_id' => count($this->queries),
             'stack' => $this->timeEnabled ? $this->getStackTrace() : null,
         ];
     }
 
+    /**
+     * @return array{
+     *     count: int,
+     *     nb_statements: int,
+     *     nb_failed_statements: int,
+     *     nb_slow_statements: int,
+     *     accumulated_duration: float|int,
+     *     accumulated_duration_str: string,
+     *     statements: list<array<string, mixed>>,
+     *     tooltip: array<string, string|int>
+     * }
+     */
     #[\Override]
     public function collect(): array
     {
-        $totalTime = 0;
+        $totalTime = 0.0;
         $failed = 0;
+        $slow = 0;
 
         foreach ($this->queries as $query) {
-            $totalTime += $query['duration'] ?? 0;
+            $totalTime += (float) ($query['duration'] ?? 0);
             if (($query['is_success'] ?? true) === false) {
                 ++$failed;
             }
+            if (($query['slow'] ?? false) === true) {
+                ++$slow;
+            }
         }
 
+        $count = count($this->queries);
+
         return [
-            'nb_statements' => count($this->queries),
+            'count' => $count,
+            'nb_statements' => $count,
             'nb_failed_statements' => $failed,
+            'nb_slow_statements' => $slow,
             'accumulated_duration' => $totalTime,
             'accumulated_duration_str' => $this->formatDuration($totalTime),
             'statements' => $this->queries,
+            'tooltip' => [
+                'Queries' => $count,
+                'Failed' => $failed,
+                'Slow' => $slow,
+                'Total time' => $this->formatDuration($totalTime),
+            ],
         ];
     }
 
@@ -78,6 +119,9 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
         return 'neo4j';
     }
 
+    /**
+     * @return array<string, array<string, mixed>>
+     */
     #[\Override]
     public function getWidgets(): array
     {
@@ -87,11 +131,28 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
                 'widget' => 'PhpDebugBar.Widgets.SQLQueriesWidget',
                 'map' => 'neo4j',
                 'default' => '[]',
+                'title' => 'Cypher Queries',
             ],
             'neo4j:badge' => [
                 'map' => 'neo4j.nb_statements',
                 'default' => 0,
             ],
+            'neo4j:tooltip' => [
+                'map' => 'neo4j.tooltip',
+                'default' => '{}',
+            ],
+        ];
+    }
+
+    /**
+     * @return array{css: string, js: string}
+     */
+    #[\Override]
+    public function getAssets(): array
+    {
+        return [
+            'css' => 'widgets/sqlqueries/widget.css',
+            'js' => 'widgets/sqlqueries/widget.js',
         ];
     }
 
@@ -101,6 +162,39 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
     public function reset(): void
     {
         $this->queries = [];
+    }
+
+    /**
+     * @api
+     */
+    public function getQueryCount(): int
+    {
+        return count($this->queries);
+    }
+
+    /**
+     * Total execution time in milliseconds.
+     *
+     * @api
+     */
+    public function getTotalDuration(): float
+    {
+        $total = 0.0;
+        foreach ($this->queries as $query) {
+            $total += (float) ($query['duration'] ?? 0);
+        }
+
+        return $total;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     *
+     * @api
+     */
+    public function getQueries(): array
+    {
+        return $this->queries;
     }
 
     /**
@@ -140,6 +234,14 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
     public function setExplainEnabled(bool $enabled = true): void
     {
         $this->explainEnabled = $enabled;
+    }
+
+    /**
+     * @api
+     */
+    public function setSlowThreshold(?float $milliseconds): void
+    {
+        $this->slowThresholdMs = $milliseconds;
     }
 
     /**

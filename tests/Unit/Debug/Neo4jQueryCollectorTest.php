@@ -53,12 +53,15 @@ class Neo4jQueryCollectorTest extends TestCase
 
         $queryData = $data['statements'][0];
         $this->assertEquals($query, $queryData['sql']);
-        $this->assertEquals($parameters, $queryData['params']);
+        $this->assertEquals($query, $queryData['cypher']);
+        $this->assertEquals($parameters, (array) $queryData['params']);
+        $this->assertEquals($parameters, $queryData['bindings']);
         $this->assertEquals($duration, $queryData['duration']);
         $this->assertEquals('0.10 ms', $queryData['duration_str']);
         $this->assertEquals($connection, $queryData['connection']);
         $this->assertNull($queryData['stack']); // Stack trace is disabled by default
         $this->assertTrue($queryData['is_success']);
+        $this->assertSame('ok', $queryData['status']);
         $this->assertEquals(0, $queryData['stmt_id']);
     }
 
@@ -133,13 +136,46 @@ class Neo4jQueryCollectorTest extends TestCase
 
         $this->assertArrayHasKey('neo4j', $widgets);
         $this->assertArrayHasKey('neo4j:badge', $widgets);
+        $this->assertArrayHasKey('neo4j:tooltip', $widgets);
 
         $this->assertEquals('database', $widgets['neo4j']['icon']);
         $this->assertEquals('PhpDebugBar.Widgets.SQLQueriesWidget', $widgets['neo4j']['widget']);
         $this->assertEquals('neo4j', $widgets['neo4j']['map']);
         $this->assertEquals('[]', $widgets['neo4j']['default']);
+        $this->assertEquals('Cypher Queries', $widgets['neo4j']['title']);
 
         $this->assertEquals('neo4j.nb_statements', $widgets['neo4j:badge']['map']);
         $this->assertEquals(0, $widgets['neo4j:badge']['default']);
+        $this->assertEquals('neo4j.tooltip', $widgets['neo4j:tooltip']['map']);
+    }
+
+    public function test_assets_provide_sql_queries_widget_resources(): void
+    {
+        $assets = $this->collector->getAssets();
+
+        $this->assertSame('widgets/sqlqueries/widget.css', $assets['css']);
+        $this->assertSame('widgets/sqlqueries/widget.js', $assets['js']);
+    }
+
+    public function test_collect_exposes_count_totals_and_tooltip(): void
+    {
+        $this->collector->setSlowThreshold(10.0);
+        $this->collector->addQuery('MATCH (a) RETURN a', [], 5.0, 'neo4j', true, null, 'neo4j');
+        $this->collector->addQuery('MATCH (b) RETURN b', [], 25.0, 'neo4j', true, null, 'neo4j');
+
+        $data = $this->collector->collect();
+
+        $this->assertSame(2, $data['count']);
+        $this->assertSame(2, $data['nb_statements']);
+        $this->assertSame(0, $data['nb_failed_statements']);
+        $this->assertSame(1, $data['nb_slow_statements']);
+        $this->assertEqualsWithDelta(30.0, $data['accumulated_duration'], 0.0001);
+        $this->assertSame('30.00 ms', $data['accumulated_duration_str']);
+        $this->assertTrue($data['statements'][1]['slow']);
+        $this->assertSame(2, $data['tooltip']['Queries']);
+        $this->assertSame('30.00 ms', $data['tooltip']['Total time']);
+        $this->assertSame(2, $this->collector->getQueryCount());
+        $this->assertEqualsWithDelta(30.0, $this->collector->getTotalDuration(), 0.0001);
+        $this->assertCount(2, $this->collector->getQueries());
     }
 }

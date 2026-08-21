@@ -48,7 +48,7 @@ class Neo4jDebugbarTest extends TestCase
         );
         $this->assertEquals(
             ['name' => 'Test Node'],
-            $data['statements'][0]['params']
+            (array) $data['statements'][0]['params']
         );
         $this->assertIsFloat($data['statements'][0]['duration']);
         $this->assertEquals('neo4j', $data['statements'][0]['connection']);
@@ -77,7 +77,7 @@ class Neo4jDebugbarTest extends TestCase
         );
         $this->assertEquals(
             ['name' => 'Test Node'],
-            $data['statements'][0]['params']
+            (array) $data['statements'][0]['params']
         );
         $this->assertIsFloat($data['statements'][0]['duration']);
     }
