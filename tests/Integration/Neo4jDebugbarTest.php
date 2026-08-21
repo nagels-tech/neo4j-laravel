@@ -3,7 +3,6 @@
 namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
-use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4j\Neo4jLaravel\Tests\TestCase;
@@ -13,17 +12,11 @@ class Neo4jDebugbarTest extends TestCase
     private LaravelDebugbar $debugbar;
     private Neo4jQueryCollector $collector;
 
-    protected function getPackageProviders($app): array
-    {
-        return array_merge(parent::getPackageProviders($app), [
-            DebugbarServiceProvider::class,
-        ]);
-    }
-
     protected function defineEnvironment($app): void
     {
         parent::defineEnvironment($app);
         $app['config']->set('debugbar.collectors.neo4j', true);
+        $app['config']->set('debugbar.options.neo4j.enabled', true);
     }
 
     protected function setUp(): void
@@ -31,9 +24,10 @@ class Neo4jDebugbarTest extends TestCase
         parent::setUp();
 
         $this->debugbar = $this->app->make(LaravelDebugbar::class);
-        $this->collector = new Neo4jQueryCollector();
-        $this->app->instance(Neo4jQueryCollector::class, $this->collector);
-        $this->debugbar->addCollector($this->collector);
+        $this->collector = $this->app->make(Neo4jQueryCollector::class);
+        $this->collector->reset();
+
+        $this->assertTrue($this->debugbar->hasCollector('neo4j'));
 
         DB::connection('neo4j')->enableQueryLog();
     }

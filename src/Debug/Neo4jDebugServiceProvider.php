@@ -34,6 +34,10 @@ class Neo4jDebugServiceProvider extends ServiceProvider
 
         /** @var \Barryvdh\Debugbar\LaravelDebugbar $debugbar */
         $debugbar = $this->app->make('debugbar');
-        $debugbar->addCollector($this->app->make(Neo4jQueryCollector::class));
+        $collector = $this->app->make(Neo4jQueryCollector::class);
+
+        if (! $debugbar->hasCollector($collector->getName())) {
+            $debugbar->addCollector($collector);
+        }
     }
 }
