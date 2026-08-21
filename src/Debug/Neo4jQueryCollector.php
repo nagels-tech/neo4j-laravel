@@ -19,6 +19,8 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
     protected bool $explainEnabled = false;
 
     /**
+     * Record a Cypher execution for Debugbar.
+     *
      * @param array<string, mixed> $parameters
      */
     public function addQuery(
@@ -27,15 +29,20 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
         ?float $duration = null,
         ?string $connection = null,
         bool $isSuccess = true,
-        ?string $errorMessage = null
+        ?string $errorMessage = null,
+        ?string $database = null
     ): void {
         $this->queries[] = [
+            // sql keeps compatibility with PhpDebugBar's SQLQueriesWidget
             'sql' => $query,
             'cypher' => $query,
             'params' => $parameters,
+            'bindings' => $parameters,
             'duration' => $duration,
             'duration_str' => $duration !== null ? sprintf('%.2f ms', $duration) : null,
             'connection' => $connection,
+            'database' => $database,
+            'status' => $isSuccess ? 'ok' : 'error',
             'is_success' => $isSuccess,
             'error_message' => $errorMessage,
             'stmt_id' => count($this->queries),

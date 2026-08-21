@@ -485,12 +485,16 @@ final class Neo4jConnection extends Connection
         if ($this->loggingQueries) {
             $this->queryLog[] = [
                 'query' => $query,
+                'cypher' => $query,
                 'bindings' => $bindings,
+                'params' => $bindings,
                 'time' => $time,
                 'connection_name' => $this->getName(),
                 'driver' => 'neo4j',
                 'database' => $this->getDatabaseName(),
+                'status' => $successful ? 'ok' : 'error',
                 'successful' => $successful,
+                'error_message' => $exception?->getMessage(),
             ];
         }
 
@@ -501,7 +505,8 @@ final class Neo4jConnection extends Connection
                 $time,
                 $this->getName(),
                 $successful,
-                $exception?->getMessage()
+                $exception?->getMessage(),
+                $this->getDatabaseName()
             );
         }
     }
