@@ -7,6 +7,8 @@ use DebugBar\DataCollector\Renderable;
 use Illuminate\Support\Str;
 
 /**
+ * Collects Cypher queries executed through Neo4j Laravel connections for Debugbar.
+ *
  * @api
  */
 class Neo4jQueryCollector extends DataCollector implements Renderable
@@ -16,15 +18,26 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
 
     protected bool $explainEnabled = false;
 
-    public function addQuery(string $query, array $parameters = [], ?float $duration = null, ?string $connection = null): void
-    {
+    /**
+     * @param array<string, mixed> $parameters
+     */
+    public function addQuery(
+        string $query,
+        array $parameters = [],
+        ?float $duration = null,
+        ?string $connection = null,
+        bool $isSuccess = true,
+        ?string $errorMessage = null
+    ): void {
         $this->queries[] = [
             'sql' => $query,
+            'cypher' => $query,
             'params' => $parameters,
             'duration' => $duration,
             'duration_str' => $duration !== null ? sprintf('%.2f ms', $duration) : null,
             'connection' => $connection,
-            'is_success' => true,
+            'is_success' => $isSuccess,
+            'error_message' => $errorMessage,
             'stmt_id' => count($this->queries),
             'stack' => $this->timeEnabled ? $this->getStackTrace() : null,
         ];
@@ -34,13 +47,18 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
     public function collect(): array
     {
         $totalTime = 0;
+        $failed = 0;
+
         foreach ($this->queries as $query) {
             $totalTime += $query['duration'] ?? 0;
+            if (($query['is_success'] ?? true) === false) {
+                ++$failed;
+            }
         }
 
         return [
             'nb_statements' => count($this->queries),
-            'nb_failed_statements' => 0,
+            'nb_failed_statements' => $failed,
             'accumulated_duration' => $totalTime,
             'accumulated_duration_str' => $this->formatDuration($totalTime),
             'statements' => $this->queries,
@@ -78,25 +96,26 @@ class Neo4jQueryCollector extends DataCollector implements Renderable
         $this->queries = [];
     }
 
+    /**
+     * @return list<array{file: string, line: int|string, class: string, function: string}>
+     */
     protected function getStackTrace(): array
     {
         $stack = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
 
-        // Remove internal framework/debugbar classes
         $stack = array_filter($stack, function ($trace) {
             return ! Str::startsWith($trace['class'] ?? '', [
                 'DebugBar\\',
-                'Neo4jPhp\\Neo4jLaravel\\Debug\\Neo4jQueryCollector',
-                'Neo4jPhp\\Neo4jLaravel\\Neo4jConnection',
+                'Neo4j\\Neo4jLaravel\\Debug\\',
+                'Neo4j\\Neo4jLaravel\\Neo4jConnection',
                 'Illuminate\\',
                 'Barryvdh\\',
             ]);
         });
 
-        // Reset array keys
         $stack = array_values($stack);
 
-        return array_map(function ($trace) {
+        return array_map(static function ($trace) {
             return [
                 'file' => $trace['file'] ?? '[internal]',
                 'line' => $trace['line'] ?? '?',

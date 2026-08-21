@@ -108,24 +108,12 @@ final class Neo4jConnection extends Connection
      */
     public function runCypher(string $query, array $parameters = []): mixed
     {
-        $start = microtime(true);
-
-        try {
+        return $this->runQueryCallback($query, $parameters, function () use ($query, $parameters): mixed {
             /** @var array<string, mixed> $parameters */
-            $result = $this->transaction
+            return $this->transaction
                 ? $this->transaction->run($query, $parameters)
                 : $this->client->run($query, $parameters);
-
-            $duration = microtime(true) - $start;
-            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
-
-            return $result;
-        } catch (\Exception $e) {
-            $duration = microtime(true) - $start;
-            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
-
-            throw $e;
-        }
+        });
     }
 
     /**
@@ -472,19 +460,19 @@ final class Neo4jConnection extends Connection
         try {
             $result = $callback();
             $duration = microtime(true) - $start;
-            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2), true);
 
             return $result;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $duration = microtime(true) - $start;
-            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2), false, $e);
 
             throw $e;
         }
     }
 
     /**
-     * Log a query in the connection's query log.
+     * Log a query in the connection's query log and, when available, Debugbar.
      *
      * @param  string  $query
      * @param  array  $bindings
@@ -492,7 +480,7 @@ final class Neo4jConnection extends Connection
      * @return void
      */
     #[\Override]
-    public function logQuery($query, $bindings, $time = null)
+    public function logQuery($query, $bindings, $time = null, bool $successful = true, ?\Throwable $exception = null)
     {
         if ($this->loggingQueries) {
             $this->queryLog[] = [
@@ -502,11 +490,19 @@ final class Neo4jConnection extends Connection
                 'connection_name' => $this->getName(),
                 'driver' => 'neo4j',
                 'database' => $this->getDatabaseName(),
+                'successful' => $successful,
             ];
         }
 
         if (DebugbarAvailability::shouldCapture(app())) {
-            app(Neo4jQueryCollector::class)->addQuery($query, $bindings, $time, $this->getName());
+            app(Neo4jQueryCollector::class)->addQuery(
+                $query,
+                is_array($bindings) ? $bindings : [],
+                $time,
+                $this->getName(),
+                $successful,
+                $exception?->getMessage()
+            );
         }
     }
 }

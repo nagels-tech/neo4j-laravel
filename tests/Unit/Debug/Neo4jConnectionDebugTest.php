@@ -135,6 +135,65 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->assertEquals($bindings, $queryData['params']);
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
+        $this->assertFalse($queryData['is_success']);
+        $this->assertEquals('Test exception', $queryData['error_message']);
+        $this->assertEquals(1, $data['nb_failed_statements']);
+    }
+
+    public function test_write_captures_cypher_query(): void
+    {
+        $query = 'CREATE (n:Test {name: $name}) RETURN n';
+        $bindings = ['name' => 'Ada'];
+        $summary = null;
+        $result = new \Laudis\Neo4j\Databags\SummarizedResult($summary);
+
+        $this->client->shouldReceive('writeTransaction')
+            ->once()
+            ->andReturn($result);
+
+        $this->connection->write($query, $bindings);
+
+        $data = $this->collector->collect();
+        $this->assertEquals(1, $data['nb_statements']);
+        $this->assertEquals($query, $data['statements'][0]['cypher']);
+        $this->assertEquals($bindings, $data['statements'][0]['params']);
+        $this->assertTrue($data['statements'][0]['is_success']);
+    }
+
+    public function test_run_cypher_captures_through_shared_execution_path(): void
+    {
+        $query = 'RETURN $value AS v';
+        $bindings = ['value' => 42];
+        $summary = null;
+        $result = new \Laudis\Neo4j\Databags\SummarizedResult($summary);
+
+        $this->client->shouldReceive('run')
+            ->once()
+            ->with($query, $bindings)
+            ->andReturn($result);
+
+        $this->connection->runCypher($query, $bindings);
+
+        $data = $this->collector->collect();
+        $this->assertEquals(1, $data['nb_statements']);
+        $this->assertEquals($query, $data['statements'][0]['sql']);
+        $this->assertEquals($bindings, $data['statements'][0]['params']);
+        $this->assertTrue($data['statements'][0]['is_success']);
+        $this->assertIsFloat($data['statements'][0]['duration']);
+    }
+
+    public function test_capture_continues_when_query_log_disabled(): void
+    {
+        $this->connection->disableQueryLog();
+
+        $this->client->shouldReceive('readTransaction')
+            ->once()
+            ->andReturn(['result']);
+
+        $this->connection->select('MATCH (n) RETURN n', []);
+
+        $this->assertSame([], $this->connection->getQueryLog());
+        $this->assertEquals(1, $this->collector->collect()['nb_statements']);
     }
 
     protected function tearDown(): void

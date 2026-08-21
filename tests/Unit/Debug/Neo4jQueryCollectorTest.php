@@ -111,6 +111,20 @@ class Neo4jQueryCollectorTest extends TestCase
         $this->assertEmpty($data['statements']);
     }
 
+    public function test_failed_query_increments_failed_count(): void
+    {
+        $this->collector->addQuery('MATCH (n) RETURN n', [], 1.2, 'neo4j', true);
+        $this->collector->addQuery('INVALID', [], 0.5, 'neo4j', false, 'Syntax error');
+
+        $data = $this->collector->collect();
+
+        $this->assertEquals(2, $data['nb_statements']);
+        $this->assertEquals(1, $data['nb_failed_statements']);
+        $this->assertFalse($data['statements'][1]['is_success']);
+        $this->assertEquals('Syntax error', $data['statements'][1]['error_message']);
+        $this->assertEquals('INVALID', $data['statements'][1]['cypher']);
+    }
+
     public function testWidgets(): void
     {
         $widgets = $this->collector->getWidgets();
