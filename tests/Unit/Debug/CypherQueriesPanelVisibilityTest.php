@@ -112,12 +112,26 @@ class CypherQueriesPanelVisibilityTest extends TestCase
         $this->assertSame(1, $collected['nb_statements']);
         $this->assertSame($cypher, $collected['statements'][0]['sql']);
         $this->assertSame(['limit' => 1], (array) $collected['statements'][0]['params']);
+        $this->assertSame(['limit' => 1], $collected['statements'][0]['bindings']);
+        $this->assertSame('neo4j', $collected['statements'][0]['connection']);
+        $this->assertSame('neo4j', $collected['statements'][0]['database']);
+        $this->assertSame(['Database' => 'neo4j'], $collected['statements'][0]['hints']);
+        $this->assertNotNull($collected['statements'][0]['duration_str']);
+        $this->assertTrue($collected['statements'][0]['is_success']);
+        $this->assertSame('ok', $collected['statements'][0]['status']);
 
         // Same collector instance as on Debugbar — dataset used by the panel.
         $dataset = $debugbar->getData();
         $this->assertArrayHasKey('neo4j', $dataset);
         $this->assertSame(1, $dataset['neo4j']['nb_statements']);
-        $this->assertSame($cypher, $dataset['neo4j']['statements'][0]['sql']);
+        $statement = $dataset['neo4j']['statements'][0];
+        $this->assertSame($cypher, $statement['sql']);
+        $this->assertSame(['limit' => 1], $statement['bindings']);
+        $this->assertSame('neo4j', $statement['connection']);
+        $this->assertSame(['Database' => 'neo4j'], $statement['hints']);
+        $this->assertNotNull($statement['duration_str']);
+        $this->assertTrue($statement['is_success']);
+        $this->assertSame('ok', $statement['status']);
     }
 
     public function test_http_response_includes_debugbar_with_cypher_tab_and_query_data(): void

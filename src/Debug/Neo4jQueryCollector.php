@@ -46,6 +46,13 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
             && $duration >= $this->slowThresholdMs;
 
         // Duplicate-detection in LaravelQueriesWidget only counts type=query.
+        $connectionLabel = $connection ?? 'neo4j';
+        $hints = [];
+        if ($database !== null && $database !== '') {
+            // Widget has no dedicated database field; Hints is rendered by LaravelQueriesWidget.
+            $hints['Database'] = $database;
+        }
+
         $this->queries[] = [
             // sql keeps compatibility with PhpDebugBar / Laravel query widgets
             'sql' => $query,
@@ -55,11 +62,13 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
             'bindings' => $parameters,
             'duration' => $duration,
             'duration_str' => $duration !== null ? $this->formatDuration($duration) : null,
-            'connection' => $connection ?? 'neo4j',
+            'connection' => $connectionLabel,
             'database' => $database,
             'status' => $isSuccess ? 'ok' : 'error',
             'is_success' => $isSuccess,
+            'error_code' => $isSuccess ? null : '',
             'error_message' => $errorMessage,
+            'hints' => $hints,
             'slow' => $isSlow,
             'stmt_id' => count($this->queries),
             'stack' => $this->timeEnabled ? $this->getStackTrace() : null,

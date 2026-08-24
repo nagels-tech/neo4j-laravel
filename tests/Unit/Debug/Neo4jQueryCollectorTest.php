@@ -62,7 +62,44 @@ class Neo4jQueryCollectorTest extends TestCase
         $this->assertNull($queryData['stack']); // Stack trace is disabled by default
         $this->assertTrue($queryData['is_success']);
         $this->assertSame('ok', $queryData['status']);
+        $this->assertNull($queryData['error_code']);
+        $this->assertSame([], $queryData['hints']);
         $this->assertEquals(0, $queryData['stmt_id']);
+    }
+
+    public function test_add_query_exposes_widget_fields_for_database_and_errors(): void
+    {
+        $this->collector->addQuery(
+            'MATCH (n) RETURN n',
+            ['id' => 1],
+            12.5,
+            'neo4j_primary',
+            true,
+            null,
+            'movies'
+        );
+        $this->collector->addQuery(
+            'BAD',
+            [],
+            1.0,
+            'neo4j_primary',
+            false,
+            'boom',
+            'movies'
+        );
+
+        $ok = $this->collector->collect()['statements'][0];
+        $this->assertSame(['Database' => 'movies'], $ok['hints']);
+        $this->assertSame('movies', $ok['database']);
+        $this->assertSame('12.50 ms', $ok['duration_str']);
+        $this->assertTrue($ok['is_success']);
+
+        $fail = $this->collector->collect()['statements'][1];
+        $this->assertFalse($fail['is_success']);
+        $this->assertSame('error', $fail['status']);
+        $this->assertSame('', $fail['error_code']);
+        $this->assertSame('boom', $fail['error_message']);
+        $this->assertSame(['Database' => 'movies'], $fail['hints']);
     }
 
     public function testStackTraceWhenEnabled(): void

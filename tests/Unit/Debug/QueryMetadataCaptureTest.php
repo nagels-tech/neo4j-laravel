@@ -75,11 +75,26 @@ class QueryMetadataCaptureTest extends TestCase
         $this->assertNotNull($entry['duration_str']);
         $this->assertSame('neo4j_primary', $entry['connection']);
         $this->assertSame('movies', $entry['database']);
+        $this->assertSame(['Database' => 'movies'], $entry['hints']);
         $this->assertSame('ok', $entry['status']);
         $this->assertTrue($entry['is_success']);
         $this->assertNull($entry['error_message']);
+        $this->assertNull($entry['error_code']);
         $this->assertSame('query', $entry['type']);
         $this->assertFalse($entry['slow']);
+
+        // Widget-facing shape on the Debugbar dataset (what LaravelQueriesWidget maps).
+        $this->app->instance(Neo4jQueryCollector::class, $this->collector);
+        $debugbar = new LaravelDebugbar($this->app);
+        $debugbar->addCollector($this->collector);
+        $dataset = $debugbar->getData()['neo4j']['statements'][0];
+        $this->assertSame($cypher, $dataset['sql']);
+        $this->assertSame($params, $dataset['bindings']);
+        $this->assertSame('neo4j_primary', $dataset['connection']);
+        $this->assertSame(['Database' => 'movies'], $dataset['hints']);
+        $this->assertNotNull($dataset['duration_str']);
+        $this->assertTrue($dataset['is_success']);
+        $this->assertSame('ok', $dataset['status']);
 
         $this->assertSame($cypher, $log['cypher']);
         $this->assertSame($params, $log['params']);
@@ -114,10 +129,13 @@ class QueryMetadataCaptureTest extends TestCase
         $this->assertEquals($params, (array) $entry['params']);
         $this->assertSame('neo4j_primary', $entry['connection']);
         $this->assertSame('movies', $entry['database']);
+        $this->assertSame(['Database' => 'movies'], $entry['hints']);
         $this->assertSame('error', $entry['status']);
         $this->assertFalse($entry['is_success']);
+        $this->assertSame('', $entry['error_code']);
         $this->assertSame('Invalid input', $entry['error_message']);
         $this->assertIsFloat($entry['duration']);
+        $this->assertNotNull($entry['duration_str']);
 
         $this->assertSame('error', $log['status']);
         $this->assertFalse($log['successful']);
