@@ -53,7 +53,7 @@ class Neo4jDebugbarRegistrationTest extends TestCase
 
         $this->assertArrayHasKey('neo4j', $widgets);
         $this->assertSame('Cypher Queries', $widgets['neo4j']['title']);
-        $this->assertSame('PhpDebugBar.Widgets.SQLQueriesWidget', $widgets['neo4j']['widget']);
+        $this->assertSame('PhpDebugBar.Widgets.LaravelQueriesWidget', $widgets['neo4j']['widget']);
         $this->assertSame('neo4j', $widgets['neo4j']['map']);
         $this->assertArrayHasKey('neo4j:badge', $widgets);
         $this->assertArrayHasKey('neo4j:tooltip', $widgets);

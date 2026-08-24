@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
  * Laravel Debugbar DataCollector for Neo4j Cypher queries.
  *
  * Stores captured executions and exposes them as a "Cypher Queries" panel
- * (reusing PhpDebugBar's SQLQueriesWidget for list/badge rendering).
+ * (reusing Laravel Debugbar's LaravelQueriesWidget for list/badge rendering).
  *
  * @api
  */
@@ -45,11 +45,12 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
             && $duration !== null
             && $duration >= $this->slowThresholdMs;
 
+        // Duplicate-detection in LaravelQueriesWidget only counts type=query.
         $this->queries[] = [
-            // sql keeps compatibility with PhpDebugBar's SQLQueriesWidget
+            // sql keeps compatibility with PhpDebugBar / Laravel query widgets
             'sql' => $query,
             'cypher' => $query,
-            'type' => 'cypher',
+            'type' => 'query',
             'params' => (object) $parameters,
             'bindings' => $parameters,
             'duration' => $duration,
@@ -128,7 +129,9 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
         return [
             'neo4j' => [
                 'icon' => 'database',
-                'widget' => 'PhpDebugBar.Widgets.SQLQueriesWidget',
+                // Prefer Laravel Debugbar's widget (always in its asset bundle) so the
+                // Cypher tab renders even when collector-provided sqlqueries JS is late.
+                'widget' => 'PhpDebugBar.Widgets.LaravelQueriesWidget',
                 'map' => 'neo4j',
                 'default' => '[]',
                 'title' => 'Cypher Queries',
@@ -146,6 +149,9 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
     }
 
     /**
+     * SQLQueries CSS still styles LaravelQueriesWidget (shared class names).
+     * JS is optional backup; Laravel Debugbar already ships LaravelQueriesWidget.
+     *
      * @return array{css: string, js: string}
      */
     #[\Override]

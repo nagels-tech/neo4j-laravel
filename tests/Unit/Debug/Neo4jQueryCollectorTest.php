@@ -139,7 +139,7 @@ class Neo4jQueryCollectorTest extends TestCase
         $this->assertArrayHasKey('neo4j:tooltip', $widgets);
 
         $this->assertEquals('database', $widgets['neo4j']['icon']);
-        $this->assertEquals('PhpDebugBar.Widgets.SQLQueriesWidget', $widgets['neo4j']['widget']);
+        $this->assertEquals('PhpDebugBar.Widgets.LaravelQueriesWidget', $widgets['neo4j']['widget']);
         $this->assertEquals('neo4j', $widgets['neo4j']['map']);
         $this->assertEquals('[]', $widgets['neo4j']['default']);
         $this->assertEquals('Cypher Queries', $widgets['neo4j']['title']);

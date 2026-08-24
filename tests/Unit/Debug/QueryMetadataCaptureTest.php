@@ -78,7 +78,7 @@ class QueryMetadataCaptureTest extends TestCase
         $this->assertSame('ok', $entry['status']);
         $this->assertTrue($entry['is_success']);
         $this->assertNull($entry['error_message']);
-        $this->assertSame('cypher', $entry['type']);
+        $this->assertSame('query', $entry['type']);
         $this->assertFalse($entry['slow']);
 
         $this->assertSame($cypher, $log['cypher']);
