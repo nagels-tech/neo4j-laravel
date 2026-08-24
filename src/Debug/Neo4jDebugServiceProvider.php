@@ -21,8 +21,10 @@ class Neo4jDebugServiceProvider extends ServiceProvider
             return;
         }
 
-        // Merge package defaults before evaluating enable/disable flags.
-        $this->mergeConfigFrom(__DIR__ . '/../../config/debugbar.php', 'debugbar');
+        // Laravel's mergeConfigFrom uses array_merge and replaces nested
+        // collectors/options wholesale. Recursively merge so neo4j keys land
+        // under an already-published debugbar.php without wiping host config.
+        $this->mergeNeo4jDebugbarConfig();
 
         if (! DebugbarAvailability::shouldRegister($this->app)) {
             return;
@@ -85,5 +87,28 @@ class Neo4jDebugServiceProvider extends ServiceProvider
         }
 
         $debugbar->addCollector($collector);
+    }
+
+    /**
+     * Merge package debugbar defaults under existing host debugbar config.
+     *
+     * Host values win over package defaults (array_replace_recursive order).
+     */
+    protected function mergeNeo4jDebugbarConfig(): void
+    {
+        if ($this->app instanceof \Illuminate\Contracts\Foundation\CachesConfiguration
+            && $this->app->configurationIsCached()) {
+            return;
+        }
+
+        /** @var array<string, mixed> $package */
+        $package = require __DIR__ . '/../../config/debugbar.php';
+        /** @var array<string, mixed> $existing */
+        $existing = $this->app->make('config')->get('debugbar', []);
+
+        $this->app->make('config')->set(
+            'debugbar',
+            array_replace_recursive($package, $existing)
+        );
     }
 }
