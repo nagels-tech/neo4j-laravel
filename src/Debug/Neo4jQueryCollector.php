@@ -227,6 +227,7 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
                 'Neo4j\\Neo4jLaravel\\Neo4jConnection',
                 'Illuminate\\',
                 'Barryvdh\\',
+                'Fruitcake\\',
             ]);
         });
 

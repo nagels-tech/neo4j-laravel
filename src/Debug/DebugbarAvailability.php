@@ -8,21 +8,33 @@ use Illuminate\Contracts\Foundation\Application;
  * Detects whether Laravel Debugbar is installed and whether Neo4j should
  * register its Debugbar integration for the current application.
  *
+ * Supports barryvdh/laravel-debugbar and fruitcake/laravel-debugbar (v4+),
+ * which replaces Barryvdh and binds the same `debugbar` container alias.
+ *
  * @api
  */
 final class DebugbarAvailability
 {
-    private const SERVICE_PROVIDER = 'Barryvdh\\Debugbar\\ServiceProvider';
-
-    private const LARAVEL_DEBUGBAR = 'Barryvdh\\Debugbar\\LaravelDebugbar';
+    /** @var list<string> */
+    private const PACKAGE_CLASSES = [
+        'Barryvdh\\Debugbar\\LaravelDebugbar',
+        'Barryvdh\\Debugbar\\ServiceProvider',
+        'Fruitcake\\LaravelDebugbar\\LaravelDebugbar',
+        'Fruitcake\\LaravelDebugbar\\ServiceProvider',
+    ];
 
     /**
-     * Whether the barryvdh/laravel-debugbar package appears to be installed.
+     * Whether a Laravel Debugbar package appears to be installed.
      */
     public static function isPackagePresent(): bool
     {
-        return class_exists(self::LARAVEL_DEBUGBAR)
-            || class_exists(self::SERVICE_PROVIDER);
+        foreach (self::PACKAGE_CLASSES as $class) {
+            if (class_exists($class)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

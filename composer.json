@@ -48,7 +48,8 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "suggest": {
-    "barryvdh/laravel-debugbar": "Required to display Neo4j Cypher queries in Laravel Debugbar"
+    "barryvdh/laravel-debugbar": "Required to display Neo4j Cypher queries in Laravel Debugbar (or fruitcake/laravel-debugbar)",
+    "fruitcake/laravel-debugbar": "Alternative Laravel Debugbar package (v4+) that also enables the Cypher Queries panel"
   },
   "config": {
     "allow-plugins": {

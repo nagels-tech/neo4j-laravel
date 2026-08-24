@@ -7,8 +7,8 @@ use Illuminate\Support\ServiceProvider;
 /**
  * Registers the Neo4j Cypher Queries collector with Laravel Debugbar.
  *
- * Safe to load only when barryvdh/laravel-debugbar is installed and bound;
- * Neo4jServiceProvider gates registration on package presence + binding.
+ * Safe to load only when Laravel Debugbar (Barryvdh or Fruitcake) is installed
+ * and bound; Neo4jServiceProvider gates registration on package presence + binding.
  *
  * @api
  */
@@ -76,7 +76,7 @@ class Neo4jDebugServiceProvider extends ServiceProvider
             return;
         }
 
-        /** @var \Barryvdh\Debugbar\LaravelDebugbar $debugbar */
+        /** @var object{hasCollector: callable, addCollector: callable} $debugbar */
         $debugbar = $this->app->make('debugbar');
         $collector = $this->app->make(Neo4jQueryCollector::class);
 
