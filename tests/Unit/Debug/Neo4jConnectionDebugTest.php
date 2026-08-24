@@ -109,22 +109,22 @@ class Neo4jConnectionDebugTest extends TestCase
     {
         $query = 'MATCH (n:Test) RETURN n';
         $bindings = ['param' => 'value'];
+        $exception = new \RuntimeException('Test exception');
 
         $this->client->shouldReceive('readTransaction')
             ->once()
             ->with(\Mockery::on(function ($callback) use ($query, $bindings) {
                 return true; // We can't easily verify the callback
             }))
-            ->andThrow(new \Exception('Test exception'));
+            ->andThrow($exception);
 
         try {
             $this->connection->select($query, $bindings);
             $this->fail('Expected exception was not thrown');
-        } catch (\Exception $e) {
-            $this->assertEquals(
-                'Test exception',
-                $e->getMessage()
-            );
+        } catch (\RuntimeException $e) {
+            // Original exception must propagate unchanged.
+            $this->assertSame($exception, $e);
+            $this->assertSame('Test exception', $e->getMessage());
         }
 
         $data = $this->collector->collect();
@@ -136,8 +136,69 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->assertIsFloat($queryData['duration']);
         $this->assertEquals('testing', $queryData['connection']);
         $this->assertFalse($queryData['is_success']);
+        $this->assertSame('error', $queryData['status']);
         $this->assertEquals('Test exception', $queryData['error_message']);
         $this->assertEquals(1, $data['nb_failed_statements']);
+    }
+
+    public function test_write_failure_is_captured_and_exception_propagates(): void
+    {
+        $query = 'CREATE (n:Test) RETURN n';
+        $bindings = ['name' => 'x'];
+        $exception = new \RuntimeException('write failed');
+
+        $this->client->shouldReceive('writeTransaction')
+            ->once()
+            ->andThrow($exception);
+
+        try {
+            $this->connection->write($query, $bindings);
+            $this->fail('Expected exception was not thrown');
+        } catch (\RuntimeException $e) {
+            $this->assertSame($exception, $e);
+        }
+
+        $entry = $this->collector->collect()['statements'][0];
+        $this->assertSame($query, $entry['cypher']);
+        $this->assertSame($bindings, $entry['bindings']);
+        $this->assertFalse($entry['is_success']);
+        $this->assertSame('error', $entry['status']);
+        $this->assertSame('write failed', $entry['error_message']);
+        $this->assertNotNull($entry['duration_str']);
+    }
+
+    public function test_transaction_run_failure_is_captured_and_exception_propagates(): void
+    {
+        $query = 'MATCH (n) RETURN n';
+        $bindings = ['id' => 1];
+        $exception = new \RuntimeException('tx run failed');
+
+        $inner = Mockery::mock(\Laudis\Neo4j\Contracts\UnmanagedTransactionInterface::class);
+        $inner->shouldReceive('run')
+            ->once()
+            ->with($query, $bindings)
+            ->andThrow($exception);
+
+        $this->client->shouldReceive('beginTransaction')
+            ->once()
+            ->andReturn($inner);
+
+        $tx = $this->connection->beginTransaction();
+
+        try {
+            $tx->run($query, $bindings);
+            $this->fail('Expected exception was not thrown');
+        } catch (\RuntimeException $e) {
+            $this->assertSame($exception, $e);
+        }
+
+        $data = $this->collector->collect();
+        $this->assertSame(1, $data['nb_statements']);
+        $this->assertSame(1, $data['nb_failed_statements']);
+        $this->assertSame($query, $data['statements'][0]['cypher']);
+        $this->assertFalse($data['statements'][0]['is_success']);
+        $this->assertSame('error', $data['statements'][0]['status']);
+        $this->assertSame('tx run failed', $data['statements'][0]['error_message']);
     }
 
     public function test_write_captures_cypher_query(): void

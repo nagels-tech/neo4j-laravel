@@ -110,15 +110,17 @@ class QueryMetadataCaptureTest extends TestCase
     {
         $cypher = 'INVALID CYPHER';
         $params = ['x' => 1];
+        $exception = new \RuntimeException('Invalid input');
 
         $this->client->shouldReceive('writeTransaction')
             ->once()
-            ->andThrow(new \RuntimeException('Invalid input'));
+            ->andThrow($exception);
 
         try {
             $this->connection->write($cypher, $params);
             $this->fail('Expected exception was not thrown');
         } catch (\RuntimeException $e) {
+            $this->assertSame($exception, $e);
             $this->assertSame('Invalid input', $e->getMessage());
         }
 
@@ -127,6 +129,7 @@ class QueryMetadataCaptureTest extends TestCase
 
         $this->assertSame($cypher, $entry['cypher']);
         $this->assertEquals($params, (array) $entry['params']);
+        $this->assertSame($params, $entry['bindings']);
         $this->assertSame('neo4j_primary', $entry['connection']);
         $this->assertSame('movies', $entry['database']);
         $this->assertSame(['Database' => 'movies'], $entry['hints']);
@@ -136,11 +139,37 @@ class QueryMetadataCaptureTest extends TestCase
         $this->assertSame('Invalid input', $entry['error_message']);
         $this->assertIsFloat($entry['duration']);
         $this->assertNotNull($entry['duration_str']);
+        $this->assertSame(1, $this->collector->collect()['nb_failed_statements']);
 
         $this->assertSame('error', $log['status']);
         $this->assertFalse($log['successful']);
         $this->assertSame('Invalid input', $log['error_message']);
         $this->assertSame('movies', $log['database']);
+        $this->assertSame($cypher, $log['cypher']);
+    }
+
+    public function test_read_failure_propagates_same_exception_after_capture(): void
+    {
+        $cypher = 'MATCH (n) RETURN n';
+        $params = [];
+        $exception = new \LogicException('read boom');
+
+        $this->client->shouldReceive('readTransaction')
+            ->once()
+            ->andThrow($exception);
+
+        try {
+            $this->connection->select($cypher, $params);
+            $this->fail('Expected exception was not thrown');
+        } catch (\LogicException $e) {
+            $this->assertSame($exception, $e);
+        }
+
+        $entry = $this->collector->collect()['statements'][0];
+        $this->assertSame($cypher, $entry['sql']);
+        $this->assertFalse($entry['is_success']);
+        $this->assertSame('error', $entry['status']);
+        $this->assertSame('read boom', $entry['error_message']);
     }
 
     protected function tearDown(): void
