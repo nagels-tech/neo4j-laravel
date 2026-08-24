@@ -262,9 +262,10 @@ class Neo4jQueryCollector extends DataCollector implements Renderable, AssetProv
     }
 
     /**
+     * Format duration for the Queries widget (values are milliseconds).
+     *
      * @psalm-suppress MissingParamType Suppressed because parent class lacks type hints but adding them breaks inheritance
      */
-    #[\Override]
     public function formatDuration($seconds): string
     {
         return sprintf('%.2f ms', $seconds);
