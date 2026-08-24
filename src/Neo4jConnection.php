@@ -3,6 +3,7 @@
 namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
@@ -10,8 +11,6 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
 use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
-use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
-use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
 
 /**
@@ -498,6 +497,11 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function logQuery($query, $bindings, $time = null, bool $successful = true, ?\Throwable $exception = null)
     {
+        // Mirror Laravel Connection::logQuery so Debugbar's Queries tab
+        // (QueryCollector listening for QueryExecuted) receives Cypher.
+        $this->totalQueryDuration += $time ?? 0.0;
+        $this->event(new QueryExecuted($query, $bindings, $time, $this));
+
         if ($this->loggingQueries) {
             $this->queryLog[] = [
                 'query' => $query,
@@ -512,18 +516,6 @@ final class Neo4jConnection extends Connection
                 'successful' => $successful,
                 'error_message' => $exception?->getMessage(),
             ];
-        }
-
-        if (DebugbarAvailability::shouldCapture(app())) {
-            app(Neo4jQueryCollector::class)->addQuery(
-                $query,
-                is_array($bindings) ? $bindings : [],
-                $time,
-                $this->getName(),
-                $successful,
-                $exception?->getMessage(),
-                $this->getDatabaseName()
-            );
         }
     }
 }

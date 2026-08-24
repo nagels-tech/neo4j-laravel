@@ -2,19 +2,16 @@
 
 namespace Neo4j\Neo4jLaravel\Tests\Unit\Debug;
 
+use Illuminate\Database\Events\QueryExecuted;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Databags\SummarizedResult;
 use Mockery;
-use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
-use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
-use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4j\Neo4jLaravel\Neo4jConnection;
 use Neo4j\Neo4jLaravel\Neo4jServiceProvider;
 use Orchestra\Testbench\TestCase;
 
 /**
- * Service-provider lifecycle when Debugbar is not registered on the app.
- * barryvdh/laravel-debugbar may still be present in require-dev; the binding is absent.
+ * Neo4j works without Laravel Debugbar; QueryExecuted still fires for listeners.
  */
 class DebugbarAbsentLifecycleTest extends TestCase
 {
@@ -35,12 +32,11 @@ class DebugbarAbsentLifecycleTest extends TestCase
         ]);
     }
 
-    public function test_does_not_register_debug_provider_or_collector_without_debugbar_binding(): void
+    public function test_does_not_require_debugbar_binding(): void
     {
-        $this->assertFalse(DebugbarAvailability::isBound($this->app));
-        $this->assertFalse($this->app->bound(Neo4jQueryCollector::class));
-        $this->assertNull($this->app->getProvider(Neo4jDebugServiceProvider::class));
-        $this->assertFalse(DebugbarAvailability::shouldCapture($this->app));
+        $this->assertFalse($this->app->bound('debugbar'));
+        $this->assertFalse(class_exists(\Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector::class));
+        $this->assertFalse(class_exists(\Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider::class));
     }
 
     public function test_neo4j_connection_works_without_debugbar(): void
@@ -51,6 +47,11 @@ class DebugbarAbsentLifecycleTest extends TestCase
         $client->shouldReceive('readTransaction')->once()->andReturn($result);
         $this->app->instance(ClientInterface::class, $client);
 
+        $received = null;
+        $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $event) use (&$received): void {
+            $received = $event;
+        });
+
         /** @var Neo4jConnection $connection */
         $connection = $this->app->make('db')->connection('neo4j');
         $this->assertInstanceOf(Neo4jConnection::class, $connection);
@@ -59,7 +60,8 @@ class DebugbarAbsentLifecycleTest extends TestCase
 
         $this->assertCount(1, $connection->getQueryLog());
         $this->assertSame('MATCH (n) RETURN n', $connection->getQueryLog()[0]['cypher']);
-        $this->assertFalse($this->app->bound(Neo4jQueryCollector::class));
+        $this->assertInstanceOf(QueryExecuted::class, $received);
+        $this->assertSame('MATCH (n) RETURN n', $received->sql);
     }
 
     protected function tearDown(): void

@@ -9,8 +9,6 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
-use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
-use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
 use Neo4j\Neo4jLaravel\Logging\Neo4jQueryLogAfterRequest;
 
 /**
@@ -93,22 +91,6 @@ final class Neo4jServiceProvider extends ServiceProvider
             $config = $app->make('config')->get('database.connections.neo4j');
 
             return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
-        });
-
-        $this->app->booting(function (): void {
-            // Only attempt Debugbar integration when the optional package is
-            // installed and the host app has registered the debugbar binding.
-            // Neo4jDebugServiceProvider merges config and decides whether to
-            // bind/attach the Cypher collector (keeps Debugbar optional).
-            if (! DebugbarAvailability::isPackagePresent()) {
-                return;
-            }
-
-            if (! DebugbarAvailability::isBound($this->app)) {
-                return;
-            }
-
-            $this->app->register(Neo4jDebugServiceProvider::class);
         });
     }
 

@@ -4,12 +4,11 @@ namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
 use Illuminate\Support\Facades\DB;
-use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4j\Neo4jLaravel\Tests\TestCase;
 use ReflectionMethod;
 
 /**
- * Live Neo4j + Laravel Debugbar: Cypher Queries panel registration, capture, and render controls.
+ * Live Neo4j + Laravel Debugbar: Cypher appears in the shared Queries tab.
  */
 class CypherQueriesDebugbarPanelTest extends TestCase
 {
@@ -18,8 +17,7 @@ class CypherQueriesDebugbarPanelTest extends TestCase
         parent::defineEnvironment($app);
         $app['config']->set('app.debug', true);
         $app['config']->set('debugbar.enabled', true);
-        $app['config']->set('debugbar.collectors.neo4j', true);
-        $app['config']->set('debugbar.options.neo4j.enabled', true);
+        $app['config']->set('debugbar.collectors.db', true);
     }
 
     protected function defineRoutes($router): void
@@ -45,38 +43,38 @@ class CypherQueriesDebugbarPanelTest extends TestCase
         /** @var LaravelDebugbar $debugbar */
         $debugbar = $this->app->make('debugbar');
         $debugbar->enable();
-        $this->app->make(Neo4jQueryCollector::class)->reset();
+        $debugbar->boot();
         DB::connection('neo4j')->enableQueryLog();
     }
 
-    public function test_live_query_appears_in_cypher_panel_collector_and_debugbar_dataset(): void
+    public function test_live_query_appears_in_queries_tab_dataset(): void
     {
         /** @var LaravelDebugbar $debugbar */
         $debugbar = $this->app->make('debugbar');
-        $this->assertTrue($debugbar->hasCollector('neo4j'));
+        $this->assertTrue($debugbar->hasCollector('queries'));
+        $this->assertFalse($debugbar->hasCollector('neo4j'));
 
         $cypher = 'CREATE (n:CypherPanelLive {name: $name}) RETURN n';
         DB::connection('neo4j')->write($cypher, ['name' => 'dataset']);
 
-        /** @var Neo4jQueryCollector $collector */
-        $collector = $this->app->make(Neo4jQueryCollector::class);
-        $data = $collector->collect();
-
-        $this->assertSame(1, $data['nb_statements']);
-        $this->assertSame($cypher, $data['statements'][0]['sql']);
-        $this->assertSame(['name' => 'dataset'], (array) $data['statements'][0]['params']);
-
         $dataset = $debugbar->getData();
-        $this->assertArrayHasKey('neo4j', $dataset);
-        $this->assertSame($cypher, $dataset['neo4j']['statements'][0]['sql']);
+        $this->assertArrayHasKey('queries', $dataset);
+        $this->assertArrayNotHasKey('neo4j', $dataset);
+
+        $matched = array_values(array_filter(
+            $dataset['queries']['statements'],
+            static fn (array $row): bool => str_contains((string) ($row['sql'] ?? ''), 'CypherPanelLive')
+        ));
+        $this->assertNotEmpty($matched);
+        $this->assertSame('neo4j', $matched[0]['connection']);
 
         $js = $this->controlsJs($debugbar);
-        $this->assertStringContainsString('addTab("neo4j"', $js);
-        $this->assertStringContainsString('Cypher Queries', $js);
-        $this->assertStringContainsString('PhpDebugBar.Widgets.LaravelQueriesWidget', $js);
+        $this->assertStringContainsString('addTab("queries"', $js);
+        $this->assertStringNotContainsString('Cypher Queries', $js);
+        $this->assertStringNotContainsString('addTab("neo4j"', $js);
     }
 
-    public function test_http_html_response_injects_debugbar_with_cypher_query_payload(): void
+    public function test_http_html_response_injects_debugbar_with_cypher_in_queries_tab(): void
     {
         /** @var LaravelDebugbar $debugbar */
         $debugbar = $this->app->make('debugbar');
@@ -87,24 +85,13 @@ class CypherQueriesDebugbarPanelTest extends TestCase
         $html = $response->getContent();
         $this->assertIsString($html);
         $this->assertStringContainsString('phpdebugbar', $html);
-        $this->assertStringContainsString('Cypher Queries', $html);
-        $this->assertStringContainsString('addTab("neo4j"', $html);
-        $this->assertStringContainsString('PhpDebugBar.Widgets.LaravelQueriesWidget', $html);
+        $this->assertStringContainsString('addTab("queries"', $html);
+        $this->assertStringNotContainsString('Cypher Queries', $html);
         $this->assertStringContainsString('CypherPanelLive', $html);
 
-        /** @var Neo4jQueryCollector $collector */
-        $collector = $this->app->make(Neo4jQueryCollector::class);
-        $this->assertGreaterThanOrEqual(1, $collector->getQueryCount());
-        $this->assertStringContainsString(
-            'CREATE (n:CypherPanelLive',
-            $collector->collect()['statements'][0]['sql']
-        );
-
-        // Inline dataset (when Debugbar embeds it) or open-handler storage should
-        // still leave the collector populated for the rendered request.
         $dataset = $debugbar->getData();
-        $this->assertArrayHasKey('neo4j', $dataset);
-        $this->assertGreaterThanOrEqual(1, $dataset['neo4j']['nb_statements']);
+        $this->assertArrayHasKey('queries', $dataset);
+        $this->assertGreaterThanOrEqual(1, $dataset['queries']['nb_statements']);
     }
 
     private function controlsJs(LaravelDebugbar $debugbar): string
