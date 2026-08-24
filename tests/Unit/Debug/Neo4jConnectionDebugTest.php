@@ -196,6 +196,58 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->assertEquals(1, $this->collector->collect()['nb_statements']);
     }
 
+    public function test_transaction_run_goes_through_capture_without_duplicate(): void
+    {
+        $query = 'MATCH (n) RETURN n';
+        $bindings = ['id' => 1];
+        $summary = null;
+        $result = new \Laudis\Neo4j\Databags\SummarizedResult($summary);
+
+        $inner = Mockery::mock(\Laudis\Neo4j\Contracts\UnmanagedTransactionInterface::class);
+        $inner->shouldReceive('run')
+            ->once()
+            ->with($query, $bindings)
+            ->andReturn($result);
+
+        $this->client->shouldReceive('beginTransaction')
+            ->once()
+            ->andReturn($inner);
+
+        $tx = $this->connection->beginTransaction();
+        $this->assertInstanceOf(\Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction::class, $tx);
+
+        $tx->run($query, $bindings);
+
+        $data = $this->collector->collect();
+        $this->assertEquals(1, $data['nb_statements']);
+        $this->assertEquals($query, $data['statements'][0]['cypher']);
+        $this->assertEquals($bindings, (array) $data['statements'][0]['params']);
+        $this->assertTrue($data['statements'][0]['is_success']);
+    }
+
+    public function test_run_cypher_inside_transaction_captures_once(): void
+    {
+        $query = 'CREATE (n:T {v: $v}) RETURN n';
+        $bindings = ['v' => 2];
+        $summary = null;
+        $result = new \Laudis\Neo4j\Databags\SummarizedResult($summary);
+
+        $inner = Mockery::mock(\Laudis\Neo4j\Contracts\UnmanagedTransactionInterface::class);
+        $inner->shouldReceive('run')
+            ->once()
+            ->with($query, $bindings)
+            ->andReturn($result);
+
+        $this->client->shouldReceive('beginTransaction')
+            ->once()
+            ->andReturn($inner);
+
+        $this->connection->beginTransaction();
+        $this->connection->runCypher($query, $bindings);
+
+        $this->assertEquals(1, $this->collector->collect()['nb_statements']);
+    }
+
     protected function tearDown(): void
     {
         parent::tearDown();

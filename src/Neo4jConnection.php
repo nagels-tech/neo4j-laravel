@@ -6,10 +6,10 @@ use Illuminate\Database\Connection;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
-use Illuminate\Support\Facades\Log;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
+use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
 use Neo4j\Neo4jLaravel\Debug\DebugbarAvailability;
 use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
@@ -49,13 +49,29 @@ final class Neo4jConnection extends Connection
 
     /**
      * Begin a new database transaction.
+     *
+     * Returns a capturing wrapper so Cypher executed via the transaction
+     * object still goes through {@see runQueryCallback()} / {@see logQuery()}.
+     * The inner unmanaged transaction is retained for {@see runCypher()}.
      */
     #[\Override]
     public function beginTransaction(): TransactionInterface
     {
         $this->transaction = $this->client->beginTransaction();
 
-        return $this->transaction;
+        return new CapturingUnmanagedTransaction($this->transaction, $this);
+    }
+
+    /**
+     * Run a callback under the shared capture / Debugbar logging path.
+     *
+     * @internal Used by {@see CapturingUnmanagedTransaction}; prefer public query APIs.
+     *
+     * @param array<string, mixed> $bindings
+     */
+    public function executeCaptured(string $query, array $bindings, \Closure $callback): mixed
+    {
+        return $this->runQueryCallback($query, $bindings, $callback);
     }
 
     /**
