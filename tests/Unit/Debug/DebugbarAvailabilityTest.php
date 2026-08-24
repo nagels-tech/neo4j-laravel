@@ -54,6 +54,14 @@ class DebugbarAvailabilityTest extends TestCase
         $this->assertFalse(DebugbarAvailability::shouldRegister($this->app));
     }
 
+    public function test_should_not_register_when_debugbar_globally_disabled(): void
+    {
+        $this->app['config']->set('debugbar.enabled', false);
+
+        $this->assertFalse(DebugbarAvailability::shouldRegister($this->app));
+        $this->assertFalse(DebugbarAvailability::shouldCapture($this->app));
+    }
+
     public function test_should_register_when_explicitly_enabled(): void
     {
         $this->app['config']->set('debugbar.options.neo4j.enabled', true);

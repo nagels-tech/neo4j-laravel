@@ -14,7 +14,8 @@ return [
             /*
             | Enable Neo4j Cypher query collection in Laravel Debugbar.
             | When null, integration follows debugbar.collectors.neo4j
-            | (enabled whenever Debugbar is installed unless collectors.neo4j is false).
+            | (enabled when Debugbar is installed/bound unless collectors.neo4j
+            | is false, or debugbar.enabled is false).
             | Set to false to keep Debugbar but skip Neo4j query capture.
             */
             'enabled' => env('DEBUGBAR_NEO4J_ENABLED', null),

@@ -59,8 +59,10 @@ class Neo4jDebugbarRegistrationTest extends TestCase
         $this->assertArrayHasKey('neo4j:tooltip', $widgets);
     }
 
-    public function test_does_not_register_when_collectors_neo4j_disabled(): void
+    public function test_should_register_and_capture_respect_runtime_disable_flags(): void
     {
+        // Boot-time disable is covered by DebugbarDisabledLifecycleTest.
+        // These flags also gate capture for the remainder of the request.
         $this->app['config']->set('debugbar.collectors.neo4j', false);
 
         $this->assertFalse(DebugbarAvailability::shouldRegister($this->app));

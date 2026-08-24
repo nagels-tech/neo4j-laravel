@@ -36,7 +36,8 @@ final class DebugbarAvailability
     /**
      * Whether Neo4j should register its Cypher Queries Debugbar integration.
      *
-     * Requires the Debugbar package. Disabled when either
+     * Package presence and the debugbar binding are checked by callers.
+     * Disabled when Debugbar itself is disabled, or when either
      * debugbar.collectors.neo4j or debugbar.options.neo4j.enabled is false.
      */
     public static function shouldRegister(Application $app): bool
@@ -50,6 +51,11 @@ final class DebugbarAvailability
         }
 
         $config = $app->make('config');
+
+        // Host app disabled Laravel Debugbar entirely.
+        if ($config->get('debugbar.enabled') === false) {
+            return false;
+        }
 
         if ($config->get('debugbar.collectors.neo4j', true) === false) {
             return false;

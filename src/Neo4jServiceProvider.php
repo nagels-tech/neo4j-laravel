@@ -96,7 +96,11 @@ final class Neo4jServiceProvider extends ServiceProvider
         });
 
         $this->app->booting(function (): void {
-            if (! DebugbarAvailability::shouldRegister($this->app)) {
+            // Only attempt Debugbar integration when the optional package is
+            // installed and the host app has registered the debugbar binding.
+            // Neo4jDebugServiceProvider merges config and decides whether to
+            // bind/attach the Cypher collector (keeps Debugbar optional).
+            if (! DebugbarAvailability::isPackagePresent()) {
                 return;
             }
 

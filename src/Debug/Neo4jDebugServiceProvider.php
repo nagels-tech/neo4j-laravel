@@ -7,6 +7,9 @@ use Illuminate\Support\ServiceProvider;
 /**
  * Registers the Neo4j Cypher Queries collector with Laravel Debugbar.
  *
+ * Safe to load only when barryvdh/laravel-debugbar is installed and bound;
+ * Neo4jServiceProvider gates registration on package presence + binding.
+ *
  * @api
  */
 class Neo4jDebugServiceProvider extends ServiceProvider
@@ -18,7 +21,12 @@ class Neo4jDebugServiceProvider extends ServiceProvider
             return;
         }
 
+        // Merge package defaults before evaluating enable/disable flags.
         $this->mergeConfigFrom(__DIR__ . '/../../config/debugbar.php', 'debugbar');
+
+        if (! DebugbarAvailability::shouldRegister($this->app)) {
+            return;
+        }
 
         $this->app->singleton(Neo4jQueryCollector::class, function () {
             $collector = new Neo4jQueryCollector();
@@ -40,6 +48,10 @@ class Neo4jDebugServiceProvider extends ServiceProvider
             return;
         }
 
+        if (! DebugbarAvailability::shouldRegister($this->app)) {
+            return;
+        }
+
         // Register after Debugbar has booted its own collectors so the
         // dedicated "Cypher Queries" tab is present when the bar renders.
         $this->app->booted(function (): void {
@@ -57,6 +69,10 @@ class Neo4jDebugServiceProvider extends ServiceProvider
         }
 
         if (! DebugbarAvailability::isBound($this->app)) {
+            return;
+        }
+
+        if (! $this->app->bound(Neo4jQueryCollector::class)) {
             return;
         }
 
