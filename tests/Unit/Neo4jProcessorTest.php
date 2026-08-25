@@ -39,4 +39,23 @@ final class Neo4jProcessorTest extends TestCase
 
         self::assertSame([['name' => 'Pratiksha']], $results);
     }
+
+    public function testKeepsVectorScoreAlongsideNodeProperties(): void
+    {
+        $node = new Node(
+            1,
+            new CypherList(['Document']),
+            new CypherMap(['id' => 'doc-1', 'title' => 'Graph databases']),
+            '4:abc:1'
+        );
+
+        $results = (new Neo4jProcessor())->processSelect(
+            $this->createMock(Builder::class),
+            [new CypherMap(['n' => $node, 'score' => 0.92])]
+        );
+
+        self::assertSame([
+            ['id' => 'doc-1', 'title' => 'Graph databases', 'score' => 0.92],
+        ], $results);
+    }
 }
