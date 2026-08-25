@@ -20,6 +20,7 @@ use WikibaseSolutions\CypherDSL\Types\PropertyTypes\BooleanType;
  *   - from() / table() -> MATCH (n:Label)
  *   - select(columns)  -> RETURN n.col, ...
  *   - where (Basic, Null, NotNull, In, NotIn, Between/NotBetween, Nested)
+ *   - whereVectorSimilarTo -> CALL db.index.vector.queryNodes
  *   - orderBy -> ORDER BY
  *   - limit   -> LIMIT
  *   - offset  -> SKIP
@@ -39,16 +40,34 @@ final class Neo4jQueryGrammar extends Grammar
     }
 
     /**
-     * Compile a select query into Cypher.
-     *
-     * Example:
-     *   table('User')->where('name', 'Pratiksha')
-     *   => MATCH (n:User) WHERE n.name = $p0 RETURN n
+     * Whether this grammar supports Laravel vector-distance query methods.
      */
+    public function supportsVectorDistance(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Compile a cosine-distance expression for the given embedding property.
+     *
+     * Laravel 13 uses this for pgvector; Neo4j vector search compiles the
+     * full query via compileSelect() instead of embedding this in MATCH.
+     */
+    public function compileVectorDistanceExpression($column): string
+    {
+        $property = $this->compileColumn((string) $column)->toQuery();
+
+        return "(1.0 - vector.similarity.cosine({$property}, \$queryVector))";
+    }
+
     #[\Override]
     public function compileSelect(Builder $query): string
     {
         $this->parameterIndex = 0;
+
+        if ($this->hasVectorSimilarity($query)) {
+            return $this->compileVectorSelect($query);
+        }
 
         $node = $this->compileNode($query->from);
         $cypher = Query::new()->match($node);
@@ -171,6 +190,7 @@ final class Neo4jQueryGrammar extends Grammar
             'NotIn' => $this->compileInWhere($where, $node, true),
             'between' => $this->compileBetweenWhere($where, $node),
             'Nested' => $this->compileNestedWhere($where, $node),
+            'VectorSimilar' => throw new RuntimeException('whereVectorSimilarTo() cannot be nested inside MATCH WHERE; it replaces the scan with a vector index query.'),
             default => throw new RuntimeException("Unsupported where type for Neo4j Query Builder: {$type}"),
         };
     }
@@ -251,6 +271,129 @@ final class Neo4jQueryGrammar extends Grammar
         }
 
         return $expression;
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $wheres
+     */
+    private function hasVectorSimilarity(Builder $query): bool
+    {
+        foreach ($query->wheres ?? [] as $where) {
+            if (($where['type'] ?? null) === 'VectorSimilar') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function compileVectorSelect(Builder $query): string
+    {
+        $node = $this->compileNode($query->from);
+        $vectorWhere = null;
+        $vectorParameter = null;
+        $minSimilarityParameter = null;
+        $extraFilters = [];
+
+        foreach ($query->wheres ?? [] as $where) {
+            if (($where['type'] ?? null) === 'VectorSimilar') {
+                if ($vectorWhere !== null) {
+                    throw new RuntimeException('Only one whereVectorSimilarTo() clause is supported per query.');
+                }
+
+                $vectorWhere = $where;
+                $vectorParameter = $this->nextParameterName();
+                $minSimilarityParameter = $this->nextParameterName();
+
+                continue;
+            }
+
+            $extraFilters[] = $this->compileWhereClause($where, $node)->toQuery();
+        }
+
+        if ($vectorWhere === null || $vectorParameter === null || $minSimilarityParameter === null) {
+            throw new RuntimeException('Vector similarity query is missing a whereVectorSimilarTo() clause.');
+        }
+
+        $column = $this->propertyName((string) $vectorWhere['column']);
+        $index = $this->vectorIndexName($query, $column);
+        $limit = max(1, (int) ($query->limit ?? 10));
+        $offset = (int) ($query->offset ?? 0);
+        $k = $limit + $offset;
+
+        $filters = ["score >= \${$minSimilarityParameter}"];
+        foreach ($extraFilters as $filter) {
+            $filters[] = $filter;
+        }
+
+        $cypher = sprintf(
+            'CALL db.index.vector.queryNodes(\'%s\', %d, $%s) YIELD node AS n, score WHERE %s RETURN %s',
+            $index,
+            $k,
+            $vectorParameter,
+            implode(' AND ', $filters),
+            $this->compileVectorReturn($query)
+        );
+
+        if (! empty($vectorWhere['order'])) {
+            $cypher .= ' ORDER BY score DESC';
+        } else {
+            $orders = $this->compileOrders($query, $query->orders ?? []);
+            if ($orders !== '') {
+                $cypher .= ' '.$orders;
+            }
+        }
+
+        if ($offset > 0) {
+            $cypher .= ' SKIP '.$offset;
+        }
+
+        return $cypher.' LIMIT '.$limit;
+    }
+
+    private function compileVectorReturn(Builder $query): string
+    {
+        $columns = $query->columns ?? null;
+        $distinct = $query->distinct ? 'DISTINCT ' : '';
+
+        if ($columns === null || $columns === [] || $columns === ['*']) {
+            return $distinct.'n, score';
+        }
+
+        $parts = [];
+        foreach ($columns as $column) {
+            if (! is_string($column) || $column === '*') {
+                return $distinct.'n, score';
+            }
+            $parts[] = $this->compileColumn($column)->toQuery();
+        }
+
+        $parts[] = 'score';
+
+        return $distinct.implode(', ', $parts);
+    }
+
+    private function vectorIndexName(Builder $query, string $column): string
+    {
+        $explicit = $query instanceof Neo4jQueryBuilder ? $query->vectorIndex : null;
+        if (is_string($explicit) && $explicit !== '') {
+            $this->assertIdentifier($explicit);
+
+            return $explicit;
+        }
+
+        $hint = $query->indexHint ?? null;
+        if (is_object($hint) && isset($hint->index) && is_string($hint->index) && $hint->index !== '') {
+            $this->assertIdentifier($hint->index);
+
+            return $hint->index;
+        }
+
+        $from = strtolower(str_replace(':', '_', (string) $query->from));
+        $name = $from.'_'.$column;
+        $this->assertIdentifier($name);
+
+        return $name;
     }
 
     private function nextParameter(): Parameter
