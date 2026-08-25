@@ -94,6 +94,8 @@ class QueryMetadataCaptureTest extends TestCase
         }
 
         $this->assertCount(1, $this->executed);
+        $this->assertStringStartsWith($cypher, $this->executed[0]->sql);
+        $this->assertStringContainsString('/* Neo4j error: Invalid input */', $this->executed[0]->sql);
         $log = $this->connection->getQueryLog()[0];
 
         $this->assertSame($cypher, $log['cypher']);
@@ -123,8 +125,10 @@ class QueryMetadataCaptureTest extends TestCase
         }
 
         $this->assertCount(1, $this->executed);
-        $this->assertSame($cypher, $this->executed[0]->sql);
+        $this->assertStringStartsWith($cypher, $this->executed[0]->sql);
+        $this->assertStringContainsString('/* Neo4j error: read boom */', $this->executed[0]->sql);
         $log = $this->connection->getQueryLog()[0];
+        $this->assertSame($cypher, $log['cypher']);
         $this->assertSame('error', $log['status']);
         $this->assertSame('read boom', $log['error_message']);
     }

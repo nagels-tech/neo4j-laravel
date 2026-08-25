@@ -489,6 +489,12 @@ final class Neo4jConnection extends Connection
     /**
      * Log a query in the connection's query log and, when available, Debugbar.
      *
+     * Dispatches {@see QueryExecuted} so Laravel Debugbar's Queries tab
+     * (and any other listeners) receive Cypher. Failed queries keep a clean
+     * entry in {@see getQueryLog()} and append an error comment on the event
+     * SQL so the shared Queries tab surfaces the failure clearly (Debugbar's
+     * QueryCollector has no success/error fields on QueryExecuted).
+     *
      * @param  string  $query
      * @param  array  $bindings
      * @param  float|null  $time
@@ -497,10 +503,13 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function logQuery($query, $bindings, $time = null, bool $successful = true, ?\Throwable $exception = null)
     {
-        // Mirror Laravel Connection::logQuery so Debugbar's Queries tab
-        // (QueryCollector listening for QueryExecuted) receives Cypher.
         $this->totalQueryDuration += $time ?? 0.0;
-        $this->event(new QueryExecuted($query, $bindings, $time, $this));
+        $this->event(new QueryExecuted(
+            $successful ? $query : $this->formatFailedQueryForDebugbar($query, $exception),
+            $bindings,
+            $time,
+            $this
+        ));
 
         if ($this->loggingQueries) {
             $this->queryLog[] = [
@@ -517,5 +526,19 @@ final class Neo4jConnection extends Connection
                 'error_message' => $exception?->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Annotate failed Cypher for Debugbar's shared Queries tab.
+     */
+    private function formatFailedQueryForDebugbar(string $query, ?\Throwable $exception): string
+    {
+        $message = $exception?->getMessage() ?? 'unknown error';
+        $safe = preg_replace('/\s+/', ' ', $message) ?? $message;
+        if (strlen($safe) > 300) {
+            $safe = substr($safe, 0, 297) . '...';
+        }
+
+        return $query . "\n/* Neo4j error: {$safe} */";
     }
 }

@@ -106,6 +106,38 @@ class SharedQueriesTabVisibilityTest extends TestCase
         $this->assertSame('neo4j', $queryStatements[0]['connection']);
     }
 
+    public function test_failed_cypher_appears_with_error_annotation_in_queries_tab(): void
+    {
+        /** @var LaravelDebugbar $debugbar */
+        $debugbar = $this->app->make('debugbar');
+        $debugbar->enable();
+        $debugbar->boot();
+
+        $client = Mockery::mock(ClientInterface::class);
+        $client->shouldReceive('writeTransaction')
+            ->once()
+            ->andThrow(new \RuntimeException('syntax error here'));
+        $this->app->instance(ClientInterface::class, $client);
+
+        $cypher = 'THIS IS NOT VALID CYPHER';
+
+        try {
+            $this->app->make('db')->connection('neo4j')->write($cypher, []);
+            $this->fail('Expected exception was not thrown');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('syntax error here', $e->getMessage());
+        }
+
+        $dataset = $debugbar->getData();
+        $matched = array_values(array_filter(
+            $dataset['queries']['statements'] ?? [],
+            static fn (array $row): bool => str_contains((string) ($row['sql'] ?? ''), 'Neo4j error: syntax error here')
+        ));
+
+        $this->assertNotEmpty($matched, 'Failed Cypher missing Neo4j error annotation in Queries tab');
+        $this->assertStringContainsString($cypher, (string) $matched[0]['sql']);
+    }
+
     public function test_http_response_includes_debugbar_queries_tab_with_cypher(): void
     {
         /** @var LaravelDebugbar $debugbar */

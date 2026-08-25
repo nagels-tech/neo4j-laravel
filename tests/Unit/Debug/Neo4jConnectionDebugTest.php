@@ -60,6 +60,43 @@ class Neo4jConnectionDebugTest extends TestCase
         $this->assertSame(12.5, $this->connection->totalQueryDuration());
     }
 
+    public function test_log_query_failure_annotates_query_executed_but_keeps_clean_log(): void
+    {
+        $query = 'MATCH (n) RETURN n';
+        $bindings = ['id' => 1];
+        $exception = new \RuntimeException("boom\nline2");
+
+        $this->connection->logQuery($query, $bindings, 3.2, false, $exception);
+
+        $this->assertCount(1, $this->executed);
+        $this->assertSame(
+            $query . "\n/* Neo4j error: boom line2 */",
+            $this->executed[0]->sql
+        );
+        $this->assertSame($bindings, $this->executed[0]->bindings);
+        $this->assertSame(3.2, $this->executed[0]->time);
+
+        $log = $this->connection->getQueryLog()[0];
+        $this->assertSame($query, $log['cypher']);
+        $this->assertSame($query, $log['query']);
+        $this->assertSame('error', $log['status']);
+        $this->assertSame("boom\nline2", $log['error_message']);
+    }
+
+    public function test_failed_query_executed_truncates_long_error_message(): void
+    {
+        $query = 'RETURN 1';
+        $long = str_repeat('x', 400);
+
+        $this->connection->logQuery($query, [], 1.0, false, new \RuntimeException($long));
+
+        $this->assertMatchesRegularExpression(
+            '/^RETURN 1\n\/\* Neo4j error: x{297}\.\.\. \*\/$/',
+            $this->executed[0]->sql
+        );
+        $this->assertSame($query, $this->connection->getQueryLog()[0]['cypher']);
+    }
+
     public function test_log_query_writes_connection_query_log(): void
     {
         $query = 'MATCH (n:Test) RETURN n';
@@ -118,6 +155,8 @@ class Neo4jConnectionDebugTest extends TestCase
         }
 
         $this->assertCount(1, $this->executed);
+        $this->assertStringStartsWith($query, $this->executed[0]->sql);
+        $this->assertStringContainsString('/* Neo4j error: Test exception */', $this->executed[0]->sql);
         $log = $this->connection->getQueryLog()[0];
         $this->assertSame($query, $log['cypher']);
         $this->assertSame('error', $log['status']);
@@ -142,12 +181,14 @@ class Neo4jConnectionDebugTest extends TestCase
             $this->assertSame($exception, $e);
         }
 
+        $this->assertCount(1, $this->executed);
+        $this->assertStringStartsWith($query, $this->executed[0]->sql);
+        $this->assertStringContainsString('/* Neo4j error: write failed */', $this->executed[0]->sql);
         $log = $this->connection->getQueryLog()[0];
         $this->assertSame($query, $log['cypher']);
         $this->assertSame($bindings, $log['bindings']);
         $this->assertSame('error', $log['status']);
         $this->assertSame('write failed', $log['error_message']);
-        $this->assertCount(1, $this->executed);
     }
 
     public function test_transaction_run_failure_is_logged_and_exception_propagates(): void
@@ -176,6 +217,8 @@ class Neo4jConnectionDebugTest extends TestCase
         }
 
         $this->assertCount(1, $this->executed);
+        $this->assertStringStartsWith($query, $this->executed[0]->sql);
+        $this->assertStringContainsString('/* Neo4j error: tx run failed */', $this->executed[0]->sql);
         $log = $this->connection->getQueryLog()[0];
         $this->assertSame($query, $log['cypher']);
         $this->assertSame('error', $log['status']);
