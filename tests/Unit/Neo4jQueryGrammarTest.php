@@ -8,7 +8,9 @@ use Illuminate\Database\Query\Processors\Processor;
 use InvalidArgumentException;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Neo4j\Neo4jLaravel\Neo4jConnection;
+use Neo4j\Neo4jLaravel\Neo4jQueryBuilder;
 use Neo4j\Neo4jLaravel\Neo4jQueryGrammar;
+use Neo4j\Neo4jLaravel\VectorBinding;
 use PHPUnit\Framework\TestCase;
 
 final class Neo4jQueryGrammarTest extends TestCase
@@ -104,6 +106,10 @@ final class Neo4jQueryGrammarTest extends TestCase
             ['name' => 'Tom Hanks'],
             $connection->prepareBindings(['name' => 'Tom Hanks'])
         );
+        self::assertSame(
+            ['p0' => [0.1, 0.2], 'p1' => 0.4],
+            $connection->prepareBindings([new VectorBinding([0.1, 0.2]), 0.4])
+        );
     }
 
     public function testCompilesSingleAndBatchInserts(): void
@@ -167,6 +173,69 @@ final class Neo4jQueryGrammarTest extends TestCase
         self::assertSame(
             'MATCH (n:User) WHERE (n.id = $p0) DELETE n',
             $grammar->compileDelete($builder)
+        );
+    }
+
+    public function testCompilesVectorSimilaritySearch(): void
+    {
+        $embedding = [0.1, 0.2, 0.3];
+
+        $builder = $this->vectorBuilder()
+            ->from('Document')
+            ->whereVectorSimilarTo('embedding', $embedding, minSimilarity: 0.4)
+            ->limit(10);
+
+        self::assertSame(
+            'CALL db.index.vector.queryNodes(\'document_embedding\', 10, $p0) YIELD node AS n, score '
+                .'WHERE score >= $p1 RETURN n, score ORDER BY score DESC LIMIT 10',
+            $builder->toSql()
+        );
+        self::assertSame([$embedding, 0.4], $this->vectorBindings($builder));
+    }
+
+    public function testCompilesVectorSimilarityWithAdditionalWheresAndCustomIndex(): void
+    {
+        $embedding = [0.4, 0.5, 0.6];
+
+        $builder = $this->vectorBuilder()
+            ->from('Document')
+            ->where('status', 'published')
+            ->useVectorIndex('docs_by_embedding')
+            ->whereVectorSimilarTo('embedding', $embedding, minSimilarity: 0.8)
+            ->limit(5);
+
+        self::assertSame(
+            'CALL db.index.vector.queryNodes(\'docs_by_embedding\', 5, $p1) YIELD node AS n, score '
+                .'WHERE score >= $p2 AND (n.status = $p0) RETURN n, score ORDER BY score DESC LIMIT 5',
+            $builder->toSql()
+        );
+        self::assertSame(['published', $embedding, 0.8], $this->vectorBindings($builder));
+    }
+
+    public function testRejectsNonArrayEmbeddings(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->vectorBuilder()->from('Document')->whereVectorSimilarTo('embedding', 'find similar docs');
+    }
+
+    private function vectorBuilder(): Neo4jQueryBuilder
+    {
+        return new Neo4jQueryBuilder(
+            $this->createMock(ConnectionInterface::class),
+            new Neo4jQueryGrammar(),
+            new Processor()
+        );
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function vectorBindings(Neo4jQueryBuilder $builder): array
+    {
+        return array_map(
+            static fn (mixed $value): mixed => $value instanceof VectorBinding ? $value->values : $value,
+            $builder->getBindings()
         );
     }
 

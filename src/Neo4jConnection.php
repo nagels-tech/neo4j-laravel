@@ -3,7 +3,6 @@
 namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
-use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
 use Illuminate\Support\Facades\Log;
@@ -325,6 +324,10 @@ final class Neo4jConnection extends Connection
         $position = 0;
 
         foreach ($bindings as $key => $value) {
+            if ($value instanceof VectorBinding) {
+                $value = $value->values;
+            }
+
             $prepared[is_int($key) ? 'p'.$position++ : $key] = $value;
         }
 
@@ -332,10 +335,61 @@ final class Neo4jConnection extends Connection
     }
 
     /**
-     * Get the default query grammar instance.
-     *
-     * @return QueryGrammar
+     * Begin a fluent query against the database.
      */
+    #[\Override]
+    public function query()
+    {
+        return new Neo4jQueryBuilder(
+            $this,
+            $this->getQueryGrammar(),
+            $this->getPostProcessor()
+        );
+    }
+
+    /**
+     * Create a Neo4j vector index for similarity search.
+     */
+    public function createVectorIndex(
+        string $name,
+        string $label,
+        string $property,
+        int $dimensions,
+        string $similarityFunction = 'cosine'
+    ): void {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement(
+            $grammar->compileCreateVectorIndex(
+                $name,
+                $label,
+                $property,
+                $dimensions,
+                $similarityFunction
+            )
+        );
+    }
+
+    /**
+     * Drop a Neo4j vector index if it exists.
+     */
+    public function dropVectorIndex(string $name): void
+    {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement($grammar->compileDropVectorIndex($name));
+    }
+
     #[\Override]
     protected function getDefaultQueryGrammar()
     {
