@@ -11,6 +11,8 @@ use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
 use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
+use Laudis\Neo4j\Databags\SummarizedResult;
+use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use PDO;
 
 /**
@@ -229,13 +231,13 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function select($query, $bindings = [], $useReadPdo = true): array
     {
-        try {
-            $result = $this->read($query, $bindings);
+        $result = $this->read($query, $this->prepareBindings($bindings));
 
-            return is_array($result) ? $result : [$result];
-        } catch (\Exception $e) {
-            throw $e;
+        if ($result instanceof SummarizedResult) {
+            return $result->list();
         }
+
+        return is_array($result) ? $result : [$result];
     }
 
     /**
@@ -248,7 +250,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function insert($query, $bindings = []): bool
     {
-        return (bool) $this->write($query, $bindings);
+        return (bool) $this->write($query, $this->prepareBindings($bindings));
     }
 
     /**
@@ -261,9 +263,9 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function update($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
 
-        return $result->summaryCounters()->nodesCreated() + $result->summaryCounters()->nodesDeleted();
+        return $result->getSummary()->getCounters()->propertiesSet();
     }
 
     /**
@@ -276,9 +278,9 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function delete($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
 
-        return $result->summaryCounters()->nodesDeleted();
+        return $result->getSummary()->getCounters()->nodesDeleted();
     }
 
     /**
@@ -291,7 +293,7 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function statement($query, $bindings = []): bool
     {
-        return (bool) $this->write($query, $bindings);
+        return (bool) $this->write($query, $this->prepareBindings($bindings));
     }
 
     /**
@@ -304,18 +306,96 @@ final class Neo4jConnection extends Connection
     #[\Override]
     public function affectingStatement($query, $bindings = []): int
     {
-        $result = $this->write($query, $bindings);
+        $result = $this->write($query, $this->prepareBindings($bindings));
+        $counters = $result->getSummary()->getCounters();
 
-        return $result->summaryCounters()->nodesCreated() +
-            $result->summaryCounters()->nodesDeleted() +
-            $result->summaryCounters()->propertiesSet();
+        return $counters->nodesCreated() +
+            $counters->nodesDeleted() +
+            $counters->propertiesSet();
     }
 
     /**
-     * Get the default query grammar instance.
+     * Prepare Laravel's positional bindings for named Cypher parameters.
      *
-     * @return QueryGrammar
+     * Associative bindings used by raw Cypher are preserved.
+     *
+     * @param  array<int|string, mixed>  $bindings
+     * @return array<string, mixed>
      */
+    #[\Override]
+    public function prepareBindings(array $bindings): array
+    {
+        $bindings = parent::prepareBindings($bindings);
+        $prepared = [];
+        $position = 0;
+
+        foreach ($bindings as $key => $value) {
+            if ($value instanceof VectorBinding) {
+                $value = $value->values;
+            }
+
+            $prepared[is_int($key) ? 'p'.$position++ : $key] = $value;
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Begin a fluent query against the database.
+     */
+    #[\Override]
+    public function query()
+    {
+        return new Neo4jQueryBuilder(
+            $this,
+            $this->getQueryGrammar(),
+            $this->getPostProcessor()
+        );
+    }
+
+    /**
+     * Create a Neo4j vector index for similarity search.
+     */
+    public function createVectorIndex(
+        string $name,
+        string $label,
+        string $property,
+        int $dimensions,
+        string $similarityFunction = 'cosine'
+    ): void {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement(
+            $grammar->compileCreateVectorIndex(
+                $name,
+                $label,
+                $property,
+                $dimensions,
+                $similarityFunction
+            )
+        );
+    }
+
+    /**
+     * Drop a Neo4j vector index if it exists.
+     */
+    public function dropVectorIndex(string $name): void
+    {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement($grammar->compileDropVectorIndex($name));
+    }
+
     #[\Override]
     protected function getDefaultQueryGrammar()
     {
