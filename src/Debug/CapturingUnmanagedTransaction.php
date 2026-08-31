@@ -21,6 +21,8 @@ final class CapturingUnmanagedTransaction implements UnmanagedTransactionInterfa
 {
     public function __construct(
         private readonly UnmanagedTransactionInterface $inner,
+        // The logging of the queries is tied to public methods and their member variables int he connection. We have to
+        // enable a bidirectional relationship as we can't reorganize it without breaking the laravel space
         private readonly Neo4jConnection $connection
     ) {
     }

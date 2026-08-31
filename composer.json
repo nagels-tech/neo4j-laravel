@@ -15,8 +15,10 @@
   },
   "require": {
     "php": "^8.2",
+    "illuminate/database": "^11.0 || ^12.0 || ^13.0",
     "illuminate/support": "^11.0 || ^12.0 || ^13.0",
-    "laudis/neo4j-php-client": "^3.2"
+    "laudis/neo4j-php-client": "^3.2",
+    "wikibase-solutions/php-cypher-dsl": "^5.0"
   },
   "require-dev": {
     "orchestra/testbench": "^9.0 || ^10.0",

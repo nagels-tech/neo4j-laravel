@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'neo4j'),
 
     /*
     |--------------------------------------------------------------------------
@@ -114,9 +114,9 @@ return [
 
         'neo4j' => [
             'driver' => 'neo4j',
-            'url' => env('NEO4J_URL', 'bolt://localhost:7687'),
+            'url' => env('NEO4J_URI', 'bolt://neo4j:7687'),
             'username' => env('NEO4J_USERNAME', 'neo4j'),
-            'password' => env('NEO4J_PASSWORD', 'testtest'),
+            'password' => env('NEO4J_PASSWORD', ''),
             'database' => env('NEO4J_DATABASE', 'neo4j'),
             'auth_scheme' => env('NEO4J_AUTH_SCHEME', 'basic'),
             'ssl' => [

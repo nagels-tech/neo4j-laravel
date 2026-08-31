@@ -37,7 +37,7 @@ class ConnectionManagementTest extends TestCase
         ');
 
         $this->assertCount(1, $results);
-        $this->assertEquals('db_facade_test', $results[0][0]->get('name'));
+        $this->assertEquals('db_facade_test', $results[0]->get('name'));
     }
 
     protected function tearDown(): void
