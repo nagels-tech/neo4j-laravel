@@ -13,6 +13,7 @@ use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
 use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
 use Laudis\Neo4j\Databags\SummarizedResult;
 use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
+use Neo4jPhp\Neo4jLaravel\Decorators\LaravelNeo4jClient;
 use PDO;
 
 /**
@@ -20,17 +21,17 @@ use PDO;
  */
 final class Neo4jConnection extends Connection
 {
-    private ClientInterface $client;
+    private LaravelNeo4jClient $client;
     private ?UnmanagedTransactionInterface $transaction = null;
     private ?PDO $pdoMock = null;
 
     public function __construct(
-        ClientInterface $client,
+        LaravelNeo4jClient $client,
         string $database = 'neo4j',
         string $tablePrefix = '',
         array $config = []
     ) {
-        $this->client = $client;
+        $this->client = new LaravelNeo4jClient($client, $this);
         parent::__construct(function () {
             return null;
         }, $database, $tablePrefix, $config);
@@ -43,7 +44,7 @@ final class Neo4jConnection extends Connection
      *
      * @psalm-suppress PossiblyUnusedMethod
      */
-    public function getClient(): ClientInterface
+    public function getClient(): LaravelNeo4jClient
     {
         return $this->client;
     }
