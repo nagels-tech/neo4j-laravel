@@ -2,8 +2,10 @@
 
 namespace Neo4j\Neo4jLaravel;
 
+use Closure;
 use Illuminate\Database\Query\Builder;
 use InvalidArgumentException;
+use Laudis\Neo4j\Types\CypherMap;
 
 /**
  * Query builder with Neo4j-specific clauses such as vector similarity search.
@@ -62,5 +64,49 @@ final class Neo4jQueryBuilder extends Builder
         $this->addBinding((float) $minSimilarity, 'where');
 
         return $this;
+    }
+
+    /**
+     * Determine if any rows exist for the current query.
+     *
+     * Laravel's default implementation casts the first row to an array; Neo4j
+     * returns CypherMap instances whose array cast hides the "exists" key.
+     */
+    #[\Override]
+    public function exists()
+    {
+        $this->applyBeforeQueryCallbacks();
+
+        $results = $this->connection->select(
+            $this->grammar->compileExists($this),
+            $this->getBindings(),
+            ! $this->useWritePdo
+        );
+
+        if (! isset($results[0])) {
+            return false;
+        }
+
+        $row = $results[0];
+
+        if ($row instanceof CypherMap) {
+            return (bool) $row->get('exists', false);
+        }
+
+        if (is_array($row)) {
+            return (bool) ($row['exists'] ?? false);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  \Closure  $callback
+     * @return mixed
+     */
+    #[\Override]
+    public function existsOr(Closure $callback)
+    {
+        return $this->exists() ? true : $callback();
     }
 }
