@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DemoCaptureController;
 use App\Http\Controllers\HtmlMovieController;
 use Illuminate\Support\Facades\Route;
 
@@ -13,3 +14,9 @@ Route::post('/movies/actors', [HtmlMovieController::class, 'addActor'])->name('m
 Route::get('/movies/{title}', [HtmlMovieController::class, 'show'])->name('movies.show');
 Route::delete('/movies/{title}', [HtmlMovieController::class, 'destroy'])->name('movies.destroy');
 Route::get('/movies/{title}/similar', [HtmlMovieController::class, 'findSimilar'])->name('movies.similar');
+
+// Debugbar capture demos (real Cypher via Client / Driver / Session / Transaction).
+Route::get('/demo/client', [DemoCaptureController::class, 'client']);
+Route::get('/demo/driver', [DemoCaptureController::class, 'driver']);
+Route::get('/demo/session', [DemoCaptureController::class, 'session']);
+Route::get('/demo/transaction', [DemoCaptureController::class, 'transaction']);
