@@ -4,12 +4,13 @@ namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
+use Laudis\Neo4j\Client;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\DriverInterface;
 use Laudis\Neo4j\Contracts\SessionInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
-use Neo4j\Neo4jLaravel\Debug\Neo4jDebugServiceProvider;
 use Neo4j\Neo4jLaravel\Logging\Neo4jQueryLogAfterRequest;
 
 /**
@@ -25,7 +26,7 @@ final class Neo4jServiceProvider extends ServiceProvider
             'neo4j-laravel'
         );
 
-        $this->app->singleton(ClientInterface::class, function (Application $app): ClientInterface {
+        $this->app->singleton(Client::class, function (Application $app): ClientInterface {
             $config = $app->make('config');
             $defaultConnection = $config->get('database.default');
             $connections = $config->get('database.connections');
@@ -64,6 +65,13 @@ final class Neo4jServiceProvider extends ServiceProvider
             return $factory->create();
         });
 
+        $this->app->singleton(ClientInterface::class, function (): ClientInterface {
+            $connection = DB::connection('neo4j');
+            assert($connection instanceof Neo4jConnection);
+
+            return $connection->getClient();
+        });
+
         $this->app->singleton(DriverInterface::class, function (Application $app): DriverInterface {
             return $app->make(ClientInterface::class)->getDriver(
                 $app->make('config')->get('database.default')
@@ -80,7 +88,7 @@ final class Neo4jServiceProvider extends ServiceProvider
 
         $manager = $this->app->make('db');
         $manager->extend('neo4j', function (array $config, string $name) {
-            $client = $this->app->make(ClientInterface::class);
+            $client = $this->app->make(Client::class);
 
             $config['name'] = $name;
 
@@ -88,15 +96,13 @@ final class Neo4jServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton('db.connection.neo4j', function (Application $app): Neo4jConnection {
-            $client = $app->make(ClientInterface::class);
+            // Use the raw factory client — ClientInterface resolves to the
+            // decorated client from this connection (would be circular).
+            $client = $app->make(Client::class);
             $config = $app->make('config')->get('database.connections.neo4j');
 
             return new Neo4jConnection($client, $config['database'] ?? 'neo4j', '', $config);
         });
-
-        if (class_exists('Barryvdh\\Debugbar\\ServiceProvider')) {
-            $this->app->register(Neo4jDebugServiceProvider::class);
-        }
     }
 
     public function boot(): void

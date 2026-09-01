@@ -66,6 +66,27 @@ Then in `.env`:
 NEO4J_QUERY_CHANNEL=neo4j_queries
 ```
 
+### Laravel Debugbar (optional)
+
+Install [barryvdh/laravel-debugbar](https://github.com/barryvdh/laravel-debugbar) or [fruitcake/laravel-debugbar](https://github.com/fruitcake/laravel-debugbar) (v4+) as a **dev** dependency. No extra Neo4j config is required.
+
+When Debugbar’s database (`queries`) collector is enabled, Cypher run through Laravel’s connection API appears in the shared **Queries** tab (via Laravel’s `QueryExecuted` event), alongside SQL from other connections. The connection name identifies Neo4j rows.
+
+Failed Cypher is still listed there: the statement keeps the original query and appends a `/* Neo4j error: … */` comment with the exception message. The in-memory query log (`getQueryLog()` / `NEO4J_QUERY_CHANNEL` flush) keeps the clean Cypher plus separate `status` / `error_message` fields.
+
+Use the connection API **or** the container-resolved Neo4j client / driver / session (they are wrapped so Cypher is captured the same way):
+
+```php
+DB::connection('neo4j')->select('MATCH (n) RETURN n LIMIT $limit', ['limit' => 10]);
+
+// Also captured — SessionInterface / ClientInterface / DriverInterface from the container
+$session->run('MATCH (n) RETURN n LIMIT $limit', ['limit' => 10]);
+```
+
+Calling methods on a raw client obtained outside this package (for example constructing `Client` yourself without going through the Laravel container) still bypasses capture.
+
+In SPA / API apps, Debugbar often stores AJAX datasets under `storage/debugbar`. Ensure that directory is writable by PHP, then select the API request (for example `GET /api/...`) in Debugbar—not only the HTML shell that served the page.
+
 ### Database Configuration
 
 Add the Neo4j connection configuration to your `config/database.php`:
@@ -160,6 +181,8 @@ Graph relationship APIs are not part of the initial Eloquent integration.
 
 ### Using Neo4j Client Interface
 
+`ClientInterface`, `DriverInterface`, and `SessionInterface` resolved from the container are capturing wrappers, so `$session->run(...)` appears in Debugbar like `DB::connection('neo4j')`:
+
 ```php
 use Laudis\Neo4j\Contracts\SessionInterface;
 
@@ -251,6 +274,8 @@ CYPHER, [
 - Support for both DB Facade and Neo4j Client Interface
 - Transaction support
 - Parameterized queries
+- Optional Laravel Debugbar support (Cypher in the shared Queries tab)
+- Query log flushing via `NEO4J_QUERY_CHANNEL`
 - SSL configuration options
 - Connection pooling
 - Timeout settings for connections and transactions
