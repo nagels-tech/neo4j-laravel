@@ -57,7 +57,7 @@ class QueryMetadataCaptureTest extends TestCase
             ->once()
             ->andReturn($result);
 
-        $this->connection->select($cypher, $params);
+        $this->connection->read($cypher, $params);
 
         $this->assertCount(1, $this->executed);
         $this->assertSame($cypher, $this->executed[0]->sql);

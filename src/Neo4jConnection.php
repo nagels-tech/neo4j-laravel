@@ -10,10 +10,9 @@ use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
 use Laudis\Neo4j\Contracts\ClientInterface;
 use Laudis\Neo4j\Contracts\TransactionInterface;
 use Laudis\Neo4j\Contracts\UnmanagedTransactionInterface;
-use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
 use Laudis\Neo4j\Databags\SummarizedResult;
-use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
-use Neo4jPhp\Neo4jLaravel\Decorators\LaravelNeo4jClient;
+use Neo4j\Neo4jLaravel\Debug\CapturingUnmanagedTransaction;
+use Neo4j\Neo4jLaravel\Decorators\LaravelNeo4jClient;
 use PDO;
 
 /**
@@ -21,17 +20,20 @@ use PDO;
  */
 final class Neo4jConnection extends Connection
 {
-    private LaravelNeo4jClient $client;
+    private ClientInterface $client;
+    private ?LaravelNeo4jClient $decoratedClient = null;
     private ?UnmanagedTransactionInterface $transaction = null;
     private ?PDO $pdoMock = null;
 
     public function __construct(
-        LaravelNeo4jClient $client,
+        ClientInterface $client,
         string $database = 'neo4j',
         string $tablePrefix = '',
         array $config = []
     ) {
-        $this->client = new LaravelNeo4jClient($client, $this);
+        // Keep the raw client for Connection APIs (select/write/…) so capture
+        // stays single-pass. getClient() returns a decorator for DI usage.
+        $this->client = $client;
         parent::__construct(function () {
             return null;
         }, $database, $tablePrefix, $config);
@@ -40,13 +42,13 @@ final class Neo4jConnection extends Connection
     }
 
     /**
-     * Get the client instance.
+     * Get the capturing Neo4j client for DI / direct client usage.
      *
      * @psalm-suppress PossiblyUnusedMethod
      */
-    public function getClient(): LaravelNeo4jClient
+    public function getClient(): ClientInterface
     {
-        return $this->client;
+        return $this->decoratedClient ??= new LaravelNeo4jClient($this->client, $this);
     }
 
     /**
@@ -235,7 +237,7 @@ final class Neo4jConnection extends Connection
         $result = $this->read($query, $this->prepareBindings($bindings));
 
         if ($result instanceof SummarizedResult) {
-            return $result->list();
+            return $result->toArray();
         }
 
         return is_array($result) ? $result : [$result];

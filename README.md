@@ -74,13 +74,16 @@ When Debugbar’s database (`queries`) collector is enabled, Cypher run through 
 
 Failed Cypher is still listed there: the statement keeps the original query and appends a `/* Neo4j error: … */` comment with the exception message. The in-memory query log (`getQueryLog()` / `NEO4J_QUERY_CHANNEL` flush) keeps the clean Cypher plus separate `status` / `error_message` fields.
 
-Use the connection API so queries are captured:
+Use the connection API **or** the container-resolved Neo4j client / driver / session (they are wrapped so Cypher is captured the same way):
 
 ```php
 DB::connection('neo4j')->select('MATCH (n) RETURN n LIMIT $limit', ['limit' => 10]);
+
+// Also captured — SessionInterface / ClientInterface / DriverInterface from the container
+$session->run('MATCH (n) RETURN n LIMIT $limit', ['limit' => 10]);
 ```
 
-Queries run on the raw Neo4j client / session (`ClientInterface`, `SessionInterface`, or `$connection->getClient()`) **bypass** this path and will not show in Debugbar or the package query log.
+Calling methods on a raw client obtained outside this package (for example constructing `Client` yourself without going through the Laravel container) still bypasses capture.
 
 In SPA / API apps, Debugbar often stores AJAX datasets under `storage/debugbar`. Ensure that directory is writable by PHP, then select the API request (for example `GET /api/...`) in Debugbar—not only the HTML shell that served the page.
 
@@ -178,7 +181,7 @@ Graph relationship APIs are not part of the initial Eloquent integration.
 
 ### Using Neo4j Client Interface
 
-Prefer `DB::connection('neo4j')` when you want Debugbar and the package query log. Direct client/session usage skips those hooks:
+`ClientInterface`, `DriverInterface`, and `SessionInterface` resolved from the container are capturing wrappers, so `$session->run(...)` appears in Debugbar like `DB::connection('neo4j')`:
 
 ```php
 use Laudis\Neo4j\Contracts\SessionInterface;

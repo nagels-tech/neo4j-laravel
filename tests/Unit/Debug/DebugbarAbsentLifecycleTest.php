@@ -45,7 +45,9 @@ class DebugbarAbsentLifecycleTest extends TestCase
         $summary = null;
         $result = new SummarizedResult($summary);
         $client->shouldReceive('readTransaction')->once()->andReturn($result);
+        $this->app->instance(\Laudis\Neo4j\Client::class, $client);
         $this->app->instance(ClientInterface::class, $client);
+        $this->app->make('db')->purge('neo4j');
 
         $received = null;
         $this->app['events']->listen(QueryExecuted::class, function (QueryExecuted $event) use (&$received): void {
@@ -56,7 +58,7 @@ class DebugbarAbsentLifecycleTest extends TestCase
         $connection = $this->app->make('db')->connection('neo4j');
         $this->assertInstanceOf(Neo4jConnection::class, $connection);
 
-        $connection->select('MATCH (n) RETURN n', []);
+        $connection->read('MATCH (n) RETURN n', []);
 
         $this->assertCount(1, $connection->getQueryLog());
         $this->assertSame('MATCH (n) RETURN n', $connection->getQueryLog()[0]['cypher']);

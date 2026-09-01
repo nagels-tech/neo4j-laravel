@@ -47,9 +47,11 @@ class SharedQueriesTabVisibilityTest extends TestCase
 
             $client = Mockery::mock(ClientInterface::class);
             $client->shouldReceive('readTransaction')->once()->andReturn($result);
+            app()->instance(\Laudis\Neo4j\Client::class, $client);
             app()->instance(ClientInterface::class, $client);
+            app('db')->purge('neo4j');
 
-            app('db')->connection('neo4j')->select(
+            app('db')->connection('neo4j')->read(
                 'MATCH (n:PanelProbe) RETURN n LIMIT $limit',
                 ['limit' => 1]
             );
@@ -87,10 +89,12 @@ class SharedQueriesTabVisibilityTest extends TestCase
         $result = new SummarizedResult($summary);
         $client = Mockery::mock(ClientInterface::class);
         $client->shouldReceive('readTransaction')->once()->andReturn($result);
+        $this->app->instance(\Laudis\Neo4j\Client::class, $client);
         $this->app->instance(ClientInterface::class, $client);
+        $this->app->make('db')->purge('neo4j');
 
         $cypher = 'MATCH (n:PanelProbe) RETURN n LIMIT $limit';
-        $this->app->make('db')->connection('neo4j')->select($cypher, ['limit' => 1]);
+        $this->app->make('db')->connection('neo4j')->read($cypher, ['limit' => 1]);
 
         $dataset = $debugbar->getData();
         $this->assertArrayHasKey('queries', $dataset);
@@ -117,7 +121,9 @@ class SharedQueriesTabVisibilityTest extends TestCase
         $client->shouldReceive('writeTransaction')
             ->once()
             ->andThrow(new \RuntimeException('syntax error here'));
+        $this->app->instance(\Laudis\Neo4j\Client::class, $client);
         $this->app->instance(ClientInterface::class, $client);
+        $this->app->make('db')->purge('neo4j');
 
         $cypher = 'THIS IS NOT VALID CYPHER';
 
