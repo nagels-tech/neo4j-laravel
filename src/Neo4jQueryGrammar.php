@@ -22,7 +22,7 @@ use WikibaseSolutions\CypherDSL\Types\PropertyTypes\BooleanType;
  *   - where (Basic, Null, NotNull, In, NotIn, Between/NotBetween, Nested,
  *            Column, raw, Date, Time, Day, Month, Year)
  *   - whereVectorSimilarTo -> CALL db.index.vector.queryNodes
- *   - aggregates (count/sum/avg/min/max), exists()
+ *   - aggregates, exists()
  *   - groupBy / having (basic)
  *   - orderBy -> ORDER BY
  *   - limit   -> LIMIT
@@ -190,11 +190,7 @@ final class Neo4jQueryGrammar extends Grammar
     {
         $aggregate = $query->aggregate;
         $function = strtolower((string) $aggregate['function']);
-        $allowed = ['count', 'sum', 'avg', 'min', 'max'];
-
-        if (! in_array($function, $allowed, true)) {
-            throw new RuntimeException("Unsupported aggregate for Neo4j Query Builder: {$function}");
-        }
+        $this->assertIdentifier($function);
 
         $argument = $this->compileAggregateArgument($function, $aggregate['columns'], (bool) $query->distinct);
         $aggregateReturn = "{$function}({$argument}) AS aggregate";

@@ -251,6 +251,17 @@ final class Neo4jQueryGrammarTest extends TestCase
         }
     }
 
+    public function testPassesUnknownAggregatesThroughToCypher(): void
+    {
+        $builder = $this->builder()->from('User');
+        $builder->aggregate = ['function' => 'collect', 'columns' => ['name']];
+
+        self::assertSame(
+            'MATCH (n:User) RETURN collect(n.name) AS aggregate',
+            $builder->toSql()
+        );
+    }
+
     public function testCompilesWhereColumnAndWhereRaw(): void
     {
         $builder = $this->builder()
