@@ -3,6 +3,8 @@
 namespace Neo4j\Neo4jLaravel;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Schema\Grammars\Grammar as SchemaGrammar;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +21,7 @@ use PDO;
 final class Neo4jConnection extends Connection
 {
     private ClientInterface $client;
+    private ?LaravelNeo4jClient $decoratedClient = null;
     private ?UnmanagedTransactionInterface $transaction = null;
     private ?PDO $pdoMock = null;
 
@@ -28,6 +31,8 @@ final class Neo4jConnection extends Connection
         string $tablePrefix = '',
         array $config = []
     ) {
+        // Keep the raw client for Connection APIs (select/write/…) so capture
+        // stays single-pass. getClient() returns a decorator for DI usage.
         $this->client = $client;
         parent::__construct(function () {
             return null;
@@ -37,24 +42,40 @@ final class Neo4jConnection extends Connection
     }
 
     /**
-     * Get the client instance.
+     * Get the capturing Neo4j client for DI / direct client usage.
      *
      * @psalm-suppress PossiblyUnusedMethod
      */
     public function getClient(): ClientInterface
     {
-        return $this->client;
+        return $this->decoratedClient ??= new LaravelNeo4jClient($this->client, $this);
     }
 
     /**
      * Begin a new database transaction.
+     *
+     * Returns a capturing wrapper so Cypher executed via the transaction
+     * object still goes through {@see runQueryCallback()} / {@see logQuery()}.
+     * The inner unmanaged transaction is retained for {@see runCypher()}.
      */
     #[\Override]
     public function beginTransaction(): TransactionInterface
     {
         $this->transaction = $this->client->beginTransaction();
 
-        return $this->transaction;
+        return new CapturingUnmanagedTransaction($this->transaction, $this);
+    }
+
+    /**
+     * Run a callback under the shared capture / Debugbar logging path.
+     *
+     * @internal Used by {@see CapturingUnmanagedTransaction}; prefer public query APIs.
+     *
+     * @param array<string, mixed> $bindings
+     */
+    public function executeCaptured(string $query, array $bindings, \Closure $callback): mixed
+    {
+        return $this->runQueryCallback($query, $bindings, $callback);
     }
 
     /**
@@ -107,24 +128,12 @@ final class Neo4jConnection extends Connection
      */
     public function runCypher(string $query, array $parameters = []): mixed
     {
-        $start = microtime(true);
-
-        try {
+        return $this->runQueryCallback($query, $parameters, function () use ($query, $parameters): mixed {
             /** @var array<string, mixed> $parameters */
-            $result = $this->transaction
+            return $this->transaction
                 ? $this->transaction->run($query, $parameters)
                 : $this->client->run($query, $parameters);
-
-            $duration = microtime(true) - $start;
-            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
-
-            return $result;
-        } catch (\Exception $e) {
-            $duration = microtime(true) - $start;
-            $this->logQuery($query, $parameters, round($duration * 1000.0, 2));
-
-            throw $e;
-        }
+        });
     }
 
     /**
@@ -228,6 +237,11 @@ final class Neo4jConnection extends Connection
         $result = $this->read($query, $this->prepareBindings($bindings));
 
         if ($result instanceof SummarizedResult) {
+            return $result->toArray();
+        }
+        $result = $this->read($query, $this->prepareBindings($bindings));
+
+        if ($result instanceof SummarizedResult) {
             return $result->list();
         }
 
@@ -312,6 +326,45 @@ final class Neo4jConnection extends Connection
      * Prepare Laravel's positional bindings for named Cypher parameters.
      *
      * Associative bindings used by raw Cypher are preserved.
+     * Prepare Laravel's positional bindings for named Cypher parameters.
+     *
+     * @param  array<int|string, mixed>  $bindings
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function prepareBindings(array $bindings): array
+    {
+        $bindings = parent::prepareBindings($bindings);
+        $prepared = [];
+        $position = 0;
+
+        foreach ($bindings as $key => $value) {
+            if ($value instanceof VectorBinding) {
+                $value = $value->values;
+            }
+
+            $prepared[is_int($key) ? 'p'.$position++ : $key] = $value;
+        }
+
+        return $prepared;
+    }
+
+    /**
+     * Begin a fluent query against the database.
+     */
+    #[\Override]
+    public function query()
+    {
+        return new Neo4jQueryBuilder(
+            $this,
+            $this->getQueryGrammar(),
+            $this->getPostProcessor()
+        );
+    }
+
+    /**
+     * Create a Neo4j vector index for similarity search.
+     * Associative bindings used by raw Cypher are preserved.
      *
      * @param  array<int|string, mixed>  $bindings
      * @return array<string, mixed>
@@ -350,6 +403,46 @@ final class Neo4jConnection extends Connection
     /**
      * Create a Neo4j vector index for similarity search.
      */
+    public function createVectorIndex(
+        string $name,
+        string $label,
+        string $property,
+        int $dimensions,
+        string $similarityFunction = 'cosine'
+    ): void {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement(
+            $grammar->compileCreateVectorIndex(
+                $name,
+                $label,
+                $property,
+                $dimensions,
+                $similarityFunction
+            )
+        );
+    }
+
+    /**
+     * Drop a Neo4j vector index if it exists.
+     */
+    public function dropVectorIndex(string $name): void
+    {
+        if ($this->getSchemaGrammar() === null) {
+            $this->useDefaultSchemaGrammar();
+        }
+
+        /** @var Neo4jSchemaGrammar $grammar */
+        $grammar = $this->getSchemaGrammar();
+
+        $this->statement($grammar->compileDropVectorIndex($name));
+    }
+
     public function createVectorIndex(
         string $name,
         string $label,
@@ -549,19 +642,25 @@ final class Neo4jConnection extends Connection
         try {
             $result = $callback();
             $duration = microtime(true) - $start;
-            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2), true);
 
             return $result;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $duration = microtime(true) - $start;
-            $this->logQuery($query, $bindings, round($duration * 1000.0, 2));
+            $this->logQuery($query, $bindings, round($duration * 1000.0, 2), false, $e);
 
             throw $e;
         }
     }
 
     /**
-     * Log a query in the connection's query log.
+     * Log a query in the connection's query log and, when available, Debugbar.
+     *
+     * Dispatches {@see QueryExecuted} so Laravel Debugbar's Queries tab
+     * (and any other listeners) receive Cypher. Failed queries keep a clean
+     * entry in {@see getQueryLog()} and append an error comment on the event
+     * SQL so the shared Queries tab surfaces the failure clearly (Debugbar's
+     * QueryCollector has no success/error fields on QueryExecuted).
      *
      * @param  string  $query
      * @param  array  $bindings
@@ -569,21 +668,44 @@ final class Neo4jConnection extends Connection
      * @return void
      */
     #[\Override]
-    public function logQuery($query, $bindings, $time = null)
+    public function logQuery($query, $bindings, $time = null, bool $successful = true, ?\Throwable $exception = null)
     {
+        $this->totalQueryDuration += $time ?? 0.0;
+        $this->event(new QueryExecuted(
+            $successful ? $query : $this->formatFailedQueryForDebugbar($query, $exception),
+            $bindings,
+            $time,
+            $this
+        ));
+
         if ($this->loggingQueries) {
             $this->queryLog[] = [
                 'query' => $query,
+                'cypher' => $query,
                 'bindings' => $bindings,
+                'params' => $bindings,
                 'time' => $time,
                 'connection_name' => $this->getName(),
                 'driver' => 'neo4j',
                 'database' => $this->getDatabaseName(),
+                'status' => $successful ? 'ok' : 'error',
+                'successful' => $successful,
+                'error_message' => $exception?->getMessage(),
             ];
         }
+    }
 
-        if (app()->bound('debugbar') && app()->bound(Neo4jQueryCollector::class)) {
-            app(Neo4jQueryCollector::class)->addQuery($query, $bindings, $time, $this->getName());
+    /**
+     * Annotate failed Cypher for Debugbar's shared Queries tab.
+     */
+    private function formatFailedQueryForDebugbar(string $query, ?\Throwable $exception): string
+    {
+        $message = $exception?->getMessage() ?? 'unknown error';
+        $safe = preg_replace('/\s+/', ' ', $message) ?? $message;
+        if (strlen($safe) > 300) {
+            $safe = substr($safe, 0, 297) . '...';
         }
+
+        return $query . "\n/* Neo4j error: {$safe} */";
     }
 }
