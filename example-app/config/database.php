@@ -114,7 +114,7 @@ return [
 
         'neo4j' => [
             'driver' => 'neo4j',
-            'url' => env('NEO4J_URI', 'bolt://neo4j:7687'),
+            'url' => env('NEO4J_URI', 'neo4j://localhost:7687'),
             'username' => env('NEO4J_USERNAME', 'neo4j'),
             'password' => env('NEO4J_PASSWORD', ''),
             'database' => env('NEO4J_DATABASE', 'neo4j'),

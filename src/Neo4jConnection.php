@@ -237,7 +237,7 @@ final class Neo4jConnection extends Connection
         $result = $this->read($query, $this->prepareBindings($bindings));
 
         if ($result instanceof SummarizedResult) {
-            return $result->toArray();
+            return $result->list();
         }
 
         return is_array($result) ? $result : [$result];
