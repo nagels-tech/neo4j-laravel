@@ -5,18 +5,19 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Laudis\Neo4j\Contracts\SessionInterface;
 
 class MovieController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(SessionInterface $session): JsonResponse
     {
-        $result = DB::connection('neo4j')->select('
+        $result = $session->run('
             MATCH (m:Movie)
             OPTIONAL MATCH (m)<-[r:ACTED_IN]-(a:Person)
             RETURN m, collect(DISTINCT {actor: a, role: r.roles}) as actors
         ');
 
-        return response()->json($result);
+        return response()->json($result->toArray());
     }
 
     public function store(Request $request): JsonResponse
