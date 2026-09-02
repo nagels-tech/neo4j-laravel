@@ -30,6 +30,32 @@ final class Neo4jProcessorTest extends TestCase
         ], $results);
     }
 
+    public function testFlattensStdClassRowsFromConnectionSelect(): void
+    {
+        $node = new Node(
+            1,
+            new CypherList(['User']),
+            new CypherMap(['id' => 'user-1', 'name' => 'Pratiksha']),
+            '4:abc:1'
+        );
+
+        $results = (new Neo4jProcessor())->processSelect(
+            $this->createMock(Builder::class),
+            [(object) ['n' => $node]]
+        );
+
+        self::assertSame([
+            ['id' => 'user-1', 'name' => 'Pratiksha'],
+        ], $results);
+    }
+
+    public function testExistsColumnIsReadableAfterArrayCast(): void
+    {
+        $row = (object) ['exists' => true];
+
+        self::assertTrue((bool) ((array) $row)['exists']);
+    }
+
     public function testRemovesNodeAliasFromSelectedPropertyNames(): void
     {
         $results = (new Neo4jProcessor())->processSelect(

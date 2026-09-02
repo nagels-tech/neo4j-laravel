@@ -14,6 +14,9 @@ use Laudis\Neo4j\Types\DateTimeZoneId;
  */
 final class Neo4jProcessor extends Processor
 {
+    /**
+     * @param  iterable<int, mixed>  $results
+     */
     #[\Override]
     public function processSelect(Builder $query, $results): array
     {
@@ -22,6 +25,8 @@ final class Neo4jProcessor extends Processor
         foreach ($results as $row) {
             $attributes = [];
 
+            // Connection::select() returns stdClass (PDO::FETCH_OBJ shape);
+            // unit tests and older call sites may still pass CypherMap rows.
             foreach ($row as $key => $value) {
                 if ($value instanceof HasPropertiesInterface) {
                     $prefix = $key === 'n' ? '' : $key.'.';
