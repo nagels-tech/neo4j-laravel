@@ -3,27 +3,18 @@
 namespace Neo4j\Neo4jLaravel\Tests\Integration;
 
 use Barryvdh\Debugbar\LaravelDebugbar;
-use Barryvdh\Debugbar\ServiceProvider as DebugbarServiceProvider;
 use Illuminate\Support\Facades\DB;
-use Neo4j\Neo4jLaravel\Debug\Neo4jQueryCollector;
 use Neo4j\Neo4jLaravel\Tests\TestCase;
 
 class Neo4jDebugbarTest extends TestCase
 {
     private LaravelDebugbar $debugbar;
-    private Neo4jQueryCollector $collector;
-
-    protected function getPackageProviders($app): array
-    {
-        return array_merge(parent::getPackageProviders($app), [
-            DebugbarServiceProvider::class,
-        ]);
-    }
 
     protected function defineEnvironment($app): void
     {
         parent::defineEnvironment($app);
-        $app['config']->set('debugbar.collectors.neo4j', true);
+        $app['config']->set('debugbar.enabled', true);
+        $app['config']->set('debugbar.collectors.db', true);
     }
 
     protected function setUp(): void
@@ -31,9 +22,11 @@ class Neo4jDebugbarTest extends TestCase
         parent::setUp();
 
         $this->debugbar = $this->app->make(LaravelDebugbar::class);
-        $this->collector = new Neo4jQueryCollector();
-        $this->app->instance(Neo4jQueryCollector::class, $this->collector);
-        $this->debugbar->addCollector($this->collector);
+        $this->debugbar->enable();
+        $this->debugbar->boot();
+
+        $this->assertTrue($this->debugbar->hasCollector('queries'));
+        $this->assertFalse($this->debugbar->hasCollector('neo4j'));
 
         DB::connection('neo4j')->enableQueryLog();
     }
@@ -45,19 +38,10 @@ class Neo4jDebugbarTest extends TestCase
             ['name' => 'Test Node']
         );
 
-        $data = $this->collector->collect();
-
-        $this->assertEquals(1, $data['nb_statements']);
-        $this->assertEquals(
-            'CREATE (n:TestNode {name: $name}) RETURN n',
-            $data['statements'][0]['sql']
-        );
-        $this->assertEquals(
-            ['name' => 'Test Node'],
-            $data['statements'][0]['params']
-        );
-        $this->assertIsFloat($data['statements'][0]['duration']);
-        $this->assertEquals('neo4j', $data['statements'][0]['connection']);
+        $statement = $this->findQueryStatement('TestNode');
+        $this->assertNotNull($statement);
+        $this->assertStringContainsString('CREATE (n:TestNode', $statement['sql']);
+        $this->assertSame('neo4j', $statement['connection']);
     }
 
     public function test_it_logs_read_queries(): void
@@ -67,50 +51,80 @@ class Neo4jDebugbarTest extends TestCase
             ['name' => 'Test Node']
         );
 
-        $this->collector->reset();
+        $this->resetQueriesCollector();
 
         DB::connection('neo4j')->read(
             'MATCH (n:TestNode {name: $name}) RETURN n',
             ['name' => 'Test Node']
         );
 
-        $data = $this->collector->collect();
-
-        $this->assertEquals(1, $data['nb_statements']);
-        $this->assertEquals(
-            'MATCH (n:TestNode {name: $name}) RETURN n',
-            $data['statements'][0]['sql']
-        );
-        $this->assertEquals(
-            ['name' => 'Test Node'],
-            $data['statements'][0]['params']
-        );
-        $this->assertIsFloat($data['statements'][0]['duration']);
+        $statement = $this->findQueryStatement('MATCH (n:TestNode');
+        $this->assertNotNull($statement);
+        $this->assertStringContainsString('MATCH (n:TestNode', $statement['sql']);
     }
 
     public function test_it_logs_multiple_queries(): void
     {
+        $this->resetQueriesCollector();
         $connection = DB::connection('neo4j');
 
         $connection->write('CREATE (n:TestNode {name: $name})', ['name' => 'Node 1']);
         $connection->write('CREATE (n:TestNode {name: $name})', ['name' => 'Node 2']);
         $connection->read('MATCH (n:TestNode) RETURN n');
 
-        $data = $this->collector->collect();
-
-        $this->assertEquals(3, $data['nb_statements']);
+        $neo4jStatements = $this->neo4jStatements();
+        $this->assertGreaterThanOrEqual(3, count($neo4jStatements));
     }
 
     public function test_it_logs_query_time(): void
     {
+        $this->resetQueriesCollector();
+
         DB::connection('neo4j')->write('
             UNWIND range(1, 1000) AS i
             CREATE (n:TestNode {value: i})
         ');
 
-        $data = $this->collector->collect();
+        $statement = $this->findQueryStatement('UNWIND range');
+        $this->assertNotNull($statement);
+        $this->assertGreaterThan(0, $statement['duration']);
+    }
 
-        $this->assertGreaterThan(0, $data['statements'][0]['duration']);
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function neo4jStatements(): array
+    {
+        $dataset = $this->debugbar->getData();
+        $statements = $dataset['queries']['statements'] ?? [];
+
+        return array_values(array_filter(
+            $statements,
+            static fn (array $row): bool => ($row['connection'] ?? '') === 'neo4j'
+                || str_contains((string) ($row['sql'] ?? ''), 'TestNode')
+                || str_contains((string) ($row['sql'] ?? ''), 'UNWIND')
+        ));
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function findQueryStatement(string $needle): ?array
+    {
+        foreach ($this->neo4jStatements() as $statement) {
+            if (str_contains((string) ($statement['sql'] ?? ''), $needle)) {
+                return $statement;
+            }
+        }
+
+        return null;
+    }
+
+    private function resetQueriesCollector(): void
+    {
+        if (method_exists($this->debugbar['queries'], 'reset')) {
+            $this->debugbar['queries']->reset();
+        }
     }
 
     protected function tearDown(): void

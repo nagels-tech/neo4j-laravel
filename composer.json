@@ -49,6 +49,10 @@
   },
   "minimum-stability": "dev",
   "prefer-stable": true,
+  "suggest": {
+    "barryvdh/laravel-debugbar": "Shows Neo4j Cypher in Debugbar's Queries tab via QueryExecuted (or fruitcake/laravel-debugbar)",
+    "fruitcake/laravel-debugbar": "Alternative Laravel Debugbar package (v4+) that shows Neo4j Cypher in the Queries tab"
+  },
   "config": {
     "allow-plugins": {
       "php-http/discovery": true
