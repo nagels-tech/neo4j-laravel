@@ -30,7 +30,7 @@ use WikibaseSolutions\CypherDSL\Types\PropertyTypes\BooleanType;
  *   - union / unionAll
  *   - insert   -> CREATE
  *   - update   -> MATCH / SET (including increment/decrement expressions)
- *   - delete   -> MATCH / DELETE
+ *   - delete   -> MATCH / DETACH DELETE
  *
  * @psalm-suppress PropertyNotSetInConstructor
  */
@@ -994,7 +994,7 @@ final class Neo4jQueryGrammar extends Grammar
             $prefix .= ' '.Query::new()->where($where)->build();
         }
 
-        return $prefix.' DELETE n';
+        return $prefix.' DETACH DELETE n';
     }
 
     /**
