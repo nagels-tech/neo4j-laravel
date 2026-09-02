@@ -26,7 +26,7 @@ final class Neo4jProcessorTest extends TestCase
         );
 
         self::assertSame([
-            ['id' => 'user-1', 'name' => 'Pratiksha'],
+            ['id' => 'user-1', 'name' => 'Pratiksha', 'elementId' => '4:abc:1'],
         ], $results);
     }
 
@@ -45,7 +45,7 @@ final class Neo4jProcessorTest extends TestCase
         );
 
         self::assertSame([
-            ['id' => 'user-1', 'name' => 'Pratiksha'],
+            ['id' => 'user-1', 'name' => 'Pratiksha', 'elementId' => '4:abc:1'],
         ], $results);
     }
 
@@ -81,7 +81,7 @@ final class Neo4jProcessorTest extends TestCase
         );
 
         self::assertSame([
-            ['id' => 'doc-1', 'title' => 'Graph databases', 'score' => 0.92],
+            ['id' => 'doc-1', 'title' => 'Graph databases', 'elementId' => '4:abc:1', 'score' => 0.92],
         ], $results);
     }
 }

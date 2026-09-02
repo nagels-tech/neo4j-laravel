@@ -171,7 +171,7 @@ final class Neo4jQueryGrammarTest extends TestCase
             ->where('id', 'user-1');
 
         self::assertSame(
-            'MATCH (n:User) WHERE (n.id = $p0) DELETE n',
+            'MATCH (n:User) WHERE (n.id = $p0) DETACH DELETE n',
             $grammar->compileDelete($builder)
         );
     }
