@@ -192,7 +192,6 @@ final class Neo4jEloquentTest extends TestCase
         self::assertSame($user->id, $loaded->profile->user->id);
     }
 
-
     public function testEloquentHasManyPosts(): void
     {
         $user = User::create(['name' => 'Ada']);
@@ -303,3 +302,4 @@ final class Role extends Neo4jModel
         return $this->belongsToMany(User::class, 'RoleUser', 'role_id', 'user_id');
     }
 }
+
