@@ -2,10 +2,7 @@
 
 namespace Neo4j\Neo4jLaravel\Concerns;
 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
-use Neo4j\Neo4jLaravel\Relations\Neo4jBelongsToMany;
 
 /**
  * Configure a standard Eloquent model for Neo4j node persistence.
@@ -17,7 +14,8 @@ use Neo4j\Neo4jLaravel\Relations\Neo4jBelongsToMany;
  * Laravel's SoftDeletes trait works with Neo4j models: soft delete sets
  * `deleted_at`, and force delete removes the node (DETACH DELETE).
  *
- * Many-to-many uses pivot nodes (a label such as RoleUser) instead of SQL JOINs.
+ * Many-to-many uses stock Eloquent BelongsToMany against a pivot label
+ * (e.g. RoleUser). Joins compile to multi-node MATCH + equality WHERE.
  */
 trait HasNeo4jConnection
 {
@@ -93,35 +91,5 @@ trait HasNeo4jConnection
     public function setLabel(string $label): static
     {
         return $this->setTable($label);
-    }
-
-    /**
-     * @param  string  $table
-     * @param  string  $foreignPivotKey
-     * @param  string  $relatedPivotKey
-     * @param  string  $parentKey
-     * @param  string  $relatedKey
-     * @param  string|null  $relationName
-     */
-    protected function newBelongsToMany(
-        Builder $query,
-        Model $parent,
-        $table,
-        $foreignPivotKey,
-        $relatedPivotKey,
-        $parentKey,
-        $relatedKey,
-        $relationName = null
-    ) {
-        return new Neo4jBelongsToMany(
-            $query,
-            $parent,
-            $table,
-            $foreignPivotKey,
-            $relatedPivotKey,
-            $parentKey,
-            $relatedKey,
-            $relationName
-        );
     }
 }

@@ -235,6 +235,40 @@ final class Neo4jEloquentTest extends TestCase
         $user->roles()->detach($editor->id);
         self::assertSame(['admin'], $user->fresh()->roles->pluck('name')->all());
     }
+
+    public function testEloquentBelongsToManyRelationQueryConstraints(): void
+    {
+        $user = User::create(['name' => 'Ada']);
+        $other = User::create(['name' => 'Alan']);
+        $admin = Role::create(['name' => 'admin']);
+        $editor = Role::create(['name' => 'editor']);
+        $viewer = Role::create(['name' => 'viewer']);
+
+        $user->roles()->attach([$admin->id, $editor->id]);
+        $other->roles()->attach($viewer->id);
+
+        $filtered = $user->roles()->where('name', 'admin')->get();
+        self::assertCount(1, $filtered);
+        self::assertSame('admin', $filtered->first()->name);
+        self::assertSame($user->id, $filtered->first()->pivot->user_id);
+
+        self::assertSame(2, $user->roles()->count());
+        self::assertSame(1, $user->roles()->where('name', 'editor')->count());
+        self::assertTrue($user->roles()->where('name', 'admin')->exists());
+        self::assertFalse($user->roles()->where('name', 'viewer')->exists());
+
+        $ordered = $user->roles()->orderBy('name')->pluck('name')->all();
+        self::assertSame(['admin', 'editor'], $ordered);
+
+        $constrained = User::with(['roles' => static function ($query): void {
+            $query->where('name', 'admin')->orderBy('name');
+        }])->where('id', $user->id)->firstOrFail();
+
+        self::assertTrue($constrained->relationLoaded('roles'));
+        self::assertCount(1, $constrained->roles);
+        self::assertSame('admin', $constrained->roles->first()->name);
+        self::assertSame($user->id, $constrained->roles->first()->pivot->user_id);
+    }
 }
 
 final class User extends Neo4jModel

@@ -195,8 +195,8 @@ Foreign-key relations work with stock Eloquent APIs against node properties
 
 - one-to-one: `hasOne` / `belongsTo`
 - one-to-many: `hasMany` / `belongsTo`
-- many-to-many: `belongsToMany` via a pivot **label** (node), e.g. `RoleUser`
-  with `user_id` and `role_id` (no SQL JOIN; the driver resolves pivot then related keys)
+- many-to-many: stock `belongsToMany` via a pivot **label** (node), e.g. `RoleUser`
+  with `user_id` and `role_id` (Eloquent joins compile to multi-node MATCH + WHERE)
 
 Including lazy load, `with(...)` eager load, `$user->profile()->create([...])`,
 `$user->posts()->create([...])`, and `$user->roles()->attach([...])` / `detach`.
